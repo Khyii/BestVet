@@ -1,0 +1,10 @@
+{
+  "description": "Streamline veterinary practice management with a user-friendly CRM that offers patient tracking, appointment scheduling, and comprehensive medical history access.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
