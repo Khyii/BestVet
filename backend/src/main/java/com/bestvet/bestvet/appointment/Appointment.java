@@ -69,7 +69,7 @@ public class Appointment {
         this.status = AppointmentStatus.COMPLETED;
     }
 
-    public void markNoShow() {
+    public void markDidntShow() {
         requireStatus(AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED);
         this.status = AppointmentStatus.DIDNT_SHOW;
     }
@@ -82,7 +82,7 @@ public class Appointment {
 
     private void requireStatus(AppointmentStatus... allowed) {
         if (!Arrays.asList(allowed).contains(status)) {
-            throw new ConflictException("No se puede realizar esta acción sobre una cita en el estado" + status);
+            throw new ConflictException("No se puede realizar esta acción sobre una cita en el estado " + status);
         }
     }
 

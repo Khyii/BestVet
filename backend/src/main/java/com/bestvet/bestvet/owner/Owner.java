@@ -22,11 +22,12 @@ public class Owner {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(nullable = false)
-    private String phone;
+    @Column(name = "phone_number", nullable = false)
+    private String phoneNumber;
 
     private String email;
 
+    @Column(columnDefinition = "TEXT")
     private String address;
 
     protected Owner() {}
@@ -37,7 +38,7 @@ public class Owner {
         this.documentNumber = documentNumber;
         this.firstName = firstName;
         this.lastName = lastName;
-        this.phone = phone;
+        this.phoneNumber = phone;
         this.email = email;
         this.address = address;
     }
@@ -83,11 +84,11 @@ public class Owner {
     }
 
     public String getPhone() {
-        return phone;
+        return phoneNumber;
     }
 
     public void setPhone(String phone) {
-        this.phone = phone;
+        this.phoneNumber = phone;
     }
 
     public String getEmail() {

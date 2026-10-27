@@ -98,9 +98,9 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentResponse markNoShow(Long id) {
+    public AppointmentResponse markDidntShow(Long id) {
         Appointment appointment = getOrThrow(id);
-        appointment.markNoShow();
+        appointment.markDidntShow();
 
         return AppointmentResponse.from(appointment);
     }

@@ -50,9 +50,9 @@ public class AppointmentController {
         return service.complete(id);
     }
 
-    @PatchMapping("/{id}/no-show")
-    public AppointmentResponse markNoShow(@PathVariable Long id) {
-        return service.markNoShow(id);
+    @PatchMapping("/{id}/didnt-show")
+    public AppointmentResponse markDidntShow(@PathVariable Long id) {
+        return service.markDidntShow(id);
     }
 
     @PatchMapping("/{id}/reschedule")
