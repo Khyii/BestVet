@@ -25,3 +25,7 @@ replay_pid*
 
 
 passwd.txt
+/backend/target/
+development_team
+product_owner
+scrum_master

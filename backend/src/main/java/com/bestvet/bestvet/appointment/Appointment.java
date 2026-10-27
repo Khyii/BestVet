@@ -38,6 +38,7 @@ public class Appointment {
     @Column(nullable = false)
     private AppointmentStatus status;
 
+    @Column(columnDefinition = "TEXT")
     private String observations;
 
     protected Appointment() {}
@@ -70,7 +71,7 @@ public class Appointment {
 
     public void markNoShow() {
         requireStatus(AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED);
-        this.status = AppointmentStatus.NO_SHOW;
+        this.status = AppointmentStatus.DIDNT_SHOW;
     }
 
     public void reschedule(LocalDateTime newDate) {

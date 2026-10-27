@@ -1,5 +1,5 @@
 package com.bestvet.bestvet.appointment;
 
 public enum AppointmentStatus {
-    SCHEDULED, CONFIRMED, CANCELLED, COMPLETED, NO_SHOW
+    SCHEDULED, CONFIRMED, CANCELLED, COMPLETED, DIDNT_SHOW
 }
