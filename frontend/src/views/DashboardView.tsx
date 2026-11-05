@@ -200,7 +200,7 @@ export default function DashboardView({ onNavigate, onSelectPatient }: Dashboard
 
         {/* Results count */}
         <p className="text-xs mt-3" style={{ color: 'var(--muted-foreground)' }}>
-          {filtered.length} {filtered.length === 1 ? 'paciente' : 'pacientes'} encontrados
+          {filtered.length} {filtered.length === 1 ? 'paciente encontrado' : 'pacientes encontrados'}
         </p>
       </div>
 
