@@ -1,13 +1,13 @@
 package com.bestvet.bestvet.pet;
 
 import com.bestvet.bestvet.common.ResourceNotFoundException;
+import com.bestvet.bestvet.medicalrecord.MedicalRecord;
+import com.bestvet.bestvet.medicalrecord.MedicalRecordRepository;
 import com.bestvet.bestvet.owner.Owner;
 import com.bestvet.bestvet.owner.OwnerRepository;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -15,10 +15,13 @@ import java.util.List;
 public class PetService {
     private final PetRepository petRepository;
     private final OwnerRepository ownerRepository;
+    private final MedicalRecordRepository medicalRecordRepository;
 
-    public PetService(PetRepository petRepository, OwnerRepository ownerRepository) {
+    public PetService(PetRepository petRepository, OwnerRepository ownerRepository,
+                      MedicalRecordRepository medicalRecordRepository) {
         this.petRepository = petRepository;
         this.ownerRepository = ownerRepository;
+        this.medicalRecordRepository = medicalRecordRepository;
     }
 
     @Transactional
@@ -36,7 +39,11 @@ public class PetService {
                 request.weight()
         );
 
-        return PetResponse.from(petRepository.save(pet));
+        Pet saved = petRepository.save(pet);
+        // RF4: el paciente se registra con su historia clínica vacía.
+        medicalRecordRepository.save(new MedicalRecord(saved));
+
+        return PetResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
