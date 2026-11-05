@@ -2,6 +2,7 @@ package com.bestvet.bestvet.staff;
 
 import com.bestvet.bestvet.common.ConflictException;
 import com.bestvet.bestvet.common.ResourceNotFoundException;
+import com.bestvet.bestvet.user.Role;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,23 +11,23 @@ import java.util.List;
 @Service
 public class VeterinarianService {
     private final VeterinarianRepository repository;
+    private final StaffAccountService staffAccountService;
 
-    public VeterinarianService(VeterinarianRepository repository) {
+    public VeterinarianService(VeterinarianRepository repository, StaffAccountService staffAccountService) {
         this.repository = repository;
+        this.staffAccountService = staffAccountService;
     }
 
     @Transactional
     public VeterinarianResponse create(VeterinarianRequest request) {
-        if (repository.existsByDocumentTypeAndDocumentNumber(
-                request.documentType(), request.documentNumber())) {
-            throw new ConflictException("Ya existe un miembro del personal con ese documento.");
-        }
+        staffAccountService.validateNewStaff(
+                request.documentType(), request.documentNumber(), request.username());
 
         if (repository.existsByLicenceNumber(request.licenceNumber())) {
             throw new ConflictException("Ya existe un veterinario con ese número de licencia.");
         }
 
-        Veterinarian vet = new Veterinarian(
+        Veterinarian vet = repository.save(new Veterinarian(
                 request.documentType(),
                 request.documentNumber(),
                 request.firstName(),
@@ -34,9 +35,11 @@ public class VeterinarianService {
                 request.email(),
                 request.phone(),
                 request.licenceNumber()
-        );
+        ));
 
-        return VeterinarianResponse.from(repository.save(vet));
+        staffAccountService.createAccount(vet, request.username(), request.password(), Role.VETERINARIAN);
+
+        return VeterinarianResponse.from(vet);
     }
 
     @Transactional(readOnly = true)

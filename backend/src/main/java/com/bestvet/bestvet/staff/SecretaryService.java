@@ -1,8 +1,7 @@
 package com.bestvet.bestvet.staff;
 
-import com.bestvet.bestvet.common.ConflictException;
 import com.bestvet.bestvet.common.ResourceNotFoundException;
-import jakarta.validation.Valid;
+import com.bestvet.bestvet.user.Role;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,26 +10,30 @@ import java.util.List;
 @Service
 public class SecretaryService {
     private final SecretaryRepository repository;
+    private final StaffAccountService staffAccountService;
 
-    public SecretaryService(SecretaryRepository repository) { this.repository = repository; }
+    public SecretaryService(SecretaryRepository repository, StaffAccountService staffAccountService) {
+        this.repository = repository;
+        this.staffAccountService = staffAccountService;
+    }
 
     @Transactional
-    public SecretaryResponse create(@Valid SecretaryRequest request) {
-        if (repository.existsByDocumentTypeAndDocumentNumber(
-                request.documentType(), request.documentNumber())) {
-            throw new ConflictException("Ya existe un miembro del personal con este documento");
-        }
+    public SecretaryResponse create(SecretaryRequest request) {
+        staffAccountService.validateNewStaff(
+                request.documentType(), request.documentNumber(), request.username());
 
-        Secretary sec = new Secretary(
+        Secretary sec = repository.save(new Secretary(
                 request.documentType(),
                 request.documentNumber(),
                 request.firstName(),
                 request.lastName(),
                 request.email(),
                 request.phone()
-        );
+        ));
 
-        return SecretaryResponse.from(repository.save(sec));
+        staffAccountService.createAccount(sec, request.username(), request.password(), Role.SECRETARY);
+
+        return SecretaryResponse.from(sec);
     }
 
     @Transactional(readOnly = true)
@@ -40,10 +43,10 @@ public class SecretaryService {
                 .toList();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public SecretaryResponse findById(Long id) {
         Secretary sec = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Secretario no encontrado."));
+                .orElseThrow(() -> new ResourceNotFoundException("Secretaria no encontrada."));
 
         return SecretaryResponse.from(sec);
     }

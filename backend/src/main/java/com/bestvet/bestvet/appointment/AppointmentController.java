@@ -3,6 +3,7 @@ package com.bestvet.bestvet.appointment;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -20,8 +21,9 @@ public class AppointmentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AppointmentResponse create(@Valid @RequestBody AppointmentRequest request) {
-        return service.create(request);
+    public AppointmentResponse create(@Valid @RequestBody AppointmentRequest request,
+                                      Authentication authentication) {
+        return service.create(request, authentication.getName());
     }
 
     @GetMapping("/{id}")

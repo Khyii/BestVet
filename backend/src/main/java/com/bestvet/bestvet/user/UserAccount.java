@@ -1,5 +1,6 @@
 package com.bestvet.bestvet.user;
 
+import com.bestvet.bestvet.staff.StaffMember;
 import jakarta.persistence.*;
 
 @Entity
@@ -10,7 +11,7 @@ public class UserAccount {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private  String username;
+    private String username;
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
@@ -22,12 +23,22 @@ public class UserAccount {
     @Column(nullable = false)
     private Role role;
 
+    // Nulo solo para el administrador, que no tiene ficha de personal (RF2).
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_member_id", unique = true)
+    private StaffMember staffMember;
+
     protected UserAccount() {}
 
     public UserAccount(String username, String passwordHash, Role role) {
+        this(username, passwordHash, role, null);
+    }
+
+    public UserAccount(String username, String passwordHash, Role role, StaffMember staffMember) {
         this.username = username;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.staffMember = staffMember;
     }
 
     public Long getId() {
@@ -48,5 +59,9 @@ public class UserAccount {
 
     public Role getRole() {
         return role;
+    }
+
+    public StaffMember getStaffMember() {
+        return staffMember;
     }
 }
