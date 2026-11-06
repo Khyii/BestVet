@@ -1,11 +1,10 @@
 package com.bestvet.bestvet.owner;
 
+import com.bestvet.bestvet.common.BadRequestException;
 import com.bestvet.bestvet.common.ConflictException;
 import com.bestvet.bestvet.common.ResourceNotFoundException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -46,8 +45,28 @@ public class OwnerService {
 
     @Transactional(readOnly = true)
     public OwnerResponse findById(Long id) {
-        Owner owner = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Dueño no encontrado"));
+        return OwnerResponse.from(getOrThrow(id));
+    }
+
+    /** RF5: mismas validaciones que el registro; el documento no puede repetir el de otro propietario. */
+    @Transactional
+    public OwnerResponse update(Long id, OwnerRequest request) {
+        Owner owner = getOrThrow(id);
+        if (repository.existsByDocumentTypeAndDocumentNumberAndIdNot(
+                request.documentType(), request.documentNumber(), id)) {
+            throw new ConflictException("Ya existe otro dueño con este documento");
+        }
+        boolean changed = owner.update(request.documentType(), request.documentNumber(),
+                request.firstName(), request.lastName(), request.phone(),
+                request.email(), request.address());
+        if (!changed) {
+            throw new BadRequestException("No hay cambios para guardar");
+        }
         return OwnerResponse.from(owner);
+    }
+
+    private Owner getOrThrow(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Dueño no encontrado"));
     }
 }

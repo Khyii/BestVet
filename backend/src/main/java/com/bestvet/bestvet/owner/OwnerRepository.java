@@ -4,4 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OwnerRepository extends JpaRepository<Owner, Long>{
     boolean existsByDocumentTypeAndDocumentNumber(DocumentType documentType, String documentNumber);
+
+    boolean existsByDocumentTypeAndDocumentNumberAndIdNot(DocumentType documentType, String documentNumber, Long id);
 }

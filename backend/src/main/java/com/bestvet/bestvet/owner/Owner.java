@@ -1,6 +1,9 @@
 package com.bestvet.bestvet.owner;
 
 import jakarta.persistence.*;
+
+import java.util.Objects;
+
 @Entity
 @Table(name = "owners",
         uniqueConstraints = @UniqueConstraint(columnNames = {"document_type", "document_number"}))
@@ -41,6 +44,28 @@ public class Owner {
         this.phoneNumber = phone;
         this.email = email;
         this.address = address;
+    }
+
+    /** RF5: aplica la edición y devuelve false si ningún dato cambió. */
+    public boolean update(DocumentType documentType, String documentNumber, String firstName,
+                          String lastName, String phone, String email, String address) {
+        boolean changed = this.documentType != documentType
+                || !Objects.equals(this.documentNumber, documentNumber)
+                || !Objects.equals(this.firstName, firstName)
+                || !Objects.equals(this.lastName, lastName)
+                || !Objects.equals(this.phoneNumber, phone)
+                || !Objects.equals(this.email, email)
+                || !Objects.equals(this.address, address);
+        if (changed) {
+            this.documentType = documentType;
+            this.documentNumber = documentNumber;
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.phoneNumber = phone;
+            this.email = email;
+            this.address = address;
+        }
+        return changed;
     }
 
     public Long getId() {

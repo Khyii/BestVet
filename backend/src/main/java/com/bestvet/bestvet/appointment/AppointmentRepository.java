@@ -12,4 +12,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     List<Appointment> findByScheduledAtGreaterThanEqualAndScheduledAtLessThanOrderByScheduledAt(
             LocalDateTime start, LocalDateTime end);
+
+    List<Appointment> findByVeterinarianIdAndScheduledAtGreaterThanEqualAndScheduledAtLessThanOrderByScheduledAt(
+            Long veterinarianId, LocalDateTime start, LocalDateTime end);
 }

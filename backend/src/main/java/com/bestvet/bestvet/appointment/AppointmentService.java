@@ -1,5 +1,6 @@
 package com.bestvet.bestvet.appointment;
 
+import com.bestvet.bestvet.common.BadRequestException;
 import com.bestvet.bestvet.common.ConflictException;
 import com.bestvet.bestvet.common.ResourceNotFoundException;
 import com.bestvet.bestvet.pet.Pet;
@@ -63,12 +64,26 @@ public class AppointmentService {
         return AppointmentResponse.from(getOrThrow(id));
     }
 
+    /**
+     * RF10: citas entre from y to (ambos inclusive), opcionalmente de un solo
+     * veterinario. El calendario mensual pide el primer y el último día del mes.
+     */
     @Transactional(readOnly = true)
-    public List<AppointmentResponse> findByDate(LocalDate date) {
-        return appointmentRepository
-                .findByScheduledAtGreaterThanEqualAndScheduledAtLessThanOrderByScheduledAt(
-                        date.atStartOfDay(), date.plusDays(1).atStartOfDay())
-                .stream()
+    public List<AppointmentResponse> findInRange(LocalDate from, LocalDate to, Long veterinarianId) {
+        if (from.isAfter(to)) {
+            throw new BadRequestException("La fecha inicial no puede ser posterior a la fecha final");
+        }
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = to.plusDays(1).atStartOfDay();
+
+        List<Appointment> appointments = veterinarianId == null
+                ? appointmentRepository
+                    .findByScheduledAtGreaterThanEqualAndScheduledAtLessThanOrderByScheduledAt(start, end)
+                : appointmentRepository
+                    .findByVeterinarianIdAndScheduledAtGreaterThanEqualAndScheduledAtLessThanOrderByScheduledAt(
+                            veterinarianId, start, end);
+
+        return appointments.stream()
                 .map(AppointmentResponse::from)
                 .toList();
     }
@@ -85,14 +100,6 @@ public class AppointmentService {
     public AppointmentResponse cancel(Long id) {
         Appointment appointment = getOrThrow(id);
         appointment.cancel();
-
-        return AppointmentResponse.from(appointment);
-    }
-
-    @Transactional
-    public AppointmentResponse complete(Long id) {
-        Appointment appointment = getOrThrow(id);
-        appointment.complete();
 
         return AppointmentResponse.from(appointment);
     }
