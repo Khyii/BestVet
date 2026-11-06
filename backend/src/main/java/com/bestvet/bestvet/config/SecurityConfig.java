@@ -49,6 +49,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/appointments").hasRole("SECRETARY")
                         .requestMatchers(HttpMethod.PATCH, "/api/appointments/**").hasRole("SECRETARY")
                         .requestMatchers(HttpMethod.GET, "/api/appointments/**").hasAnyRole("SECRETARY", "VETERINARIAN")
+                        // Historia clínica y vacunas: exclusivas del veterinario (RF11, RF12).
+                        // Deben ir antes de la regla general de /api/pets/**.
+                        .requestMatchers("/api/pets/*/medical-record", "/api/pets/*/medical-record/**").hasRole("VETERINARIAN")
+                        .requestMatchers(HttpMethod.GET, "/api/vaccines").hasRole("VETERINARIAN")
                         // Propietarios y pacientes
                         .requestMatchers(HttpMethod.POST, "/api/owners", "/api/pets").hasRole("SECRETARY")
                         .requestMatchers(HttpMethod.GET, "/api/owners/**", "/api/pets/**").hasAnyRole("SECRETARY", "VETERINARIAN")
