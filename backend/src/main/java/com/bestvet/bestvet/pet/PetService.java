@@ -40,7 +40,8 @@ public class PetService {
                 request.breed(),
                 request.sex(),
                 request.birthDate(),
-                request.weight()
+                request.weight(),
+                request.observations()
         );
 
         Pet saved = petRepository.save(pet);
@@ -87,7 +88,7 @@ public class PetService {
     public PetResponse update(Long id, PetUpdateRequest request) {
         Pet pet = getOrThrow(id);
         boolean changed = pet.update(request.name(), request.species(), request.breed(),
-                request.sex(), request.birthDate(), request.weight(), request.status());
+                request.sex(), request.birthDate(), request.weight(), request.observations(), request.status());
         if (!changed) {
             throw new BadRequestException("No hay cambios para guardar");
         }

@@ -5,6 +5,7 @@ import { createOwner, listOwners } from '../api/owners'
 import { createPet } from '../api/pets'
 import {
   DOCUMENT_TYPE_LABELS,
+  MAX_OBSERVATIONS,
   SEX_LABELS,
   type DocumentType,
   type Owner,
@@ -46,12 +47,13 @@ interface PetForm {
   sex: '' | Sex
   birthDate: string
   weight: string
+  observations: string
 }
 
 const EMPTY_OWNER: OwnerForm = {
   documentType: 'CC', documentNumber: '', firstName: '', lastName: '', phone: '', email: '', address: '',
 }
-const EMPTY_PET: PetForm = { name: '', species: '', breed: '', sex: '', birthDate: '', weight: '' }
+const EMPTY_PET: PetForm = { name: '', species: '', breed: '', sex: '', birthDate: '', weight: '', observations: '' }
 
 /** Normaliza texto para buscar sin distinguir mayúsculas ni tildes, como el backend. */
 function normalize(text: string): string {
@@ -75,6 +77,9 @@ export function validatePet(f: PetForm, today: string = todayIso()): Errors {
   if (!f.sex) e.sex = REQUIRED
   if (f.birthDate && f.birthDate > today) e.birthDate = 'La fecha de nacimiento no puede ser futura.'
   if (f.weight.trim() && !(Number(f.weight) > 0)) e.weight = 'El peso debe ser mayor que cero.'
+  if (f.observations.length > MAX_OBSERVATIONS) {
+    e.observations = `Las observaciones no pueden superar los ${MAX_OBSERVATIONS} caracteres.`
+  }
   return e
 }
 
@@ -128,7 +133,7 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
       setOwnerForm((f) => ({ ...f, [k]: e.target.value }))
 
   const setPetField = (k: keyof PetForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setPetForm((f) => ({ ...f, [k]: e.target.value }))
 
   const handleCreateOwner = async (e: React.FormEvent) => {
@@ -189,6 +194,7 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
         sex: petForm.sex as Sex,
         birthDate: petForm.birthDate || null,
         weight: petForm.weight.trim() ? Number(petForm.weight) : null,
+        observations: blankToNull(petForm.observations),
       })
       setSaved(true)
       setTimeout(() => onNavigate('dashboard'), 1200)
@@ -429,6 +435,21 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
               />
             </Field>
           </div>
+          <Field id="pet-observations" label="Observaciones" error={petErrors.observations}>
+            <textarea
+              {...fieldAria('pet-observations', petErrors.observations)}
+              value={petForm.observations}
+              onChange={setPetField('observations')}
+              maxLength={MAX_OBSERVATIONS}
+              rows={3}
+              placeholder="Alergias, condiciones crónicas u otras notas relevantes"
+              className={INPUT_CLASS + ' resize-none'}
+              style={{ lineHeight: '1.5' }}
+            />
+            <p className="text-xs mt-1 text-right" style={{ color: 'var(--muted-foreground)' }}>
+              {petForm.observations.length}/{MAX_OBSERVATIONS}
+            </p>
+          </Field>
         </section>
 
         {petMessage && <p role="alert" className="text-sm" style={{ color: '#b91c1c' }}>{petMessage}</p>}
