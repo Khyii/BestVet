@@ -107,3 +107,11 @@ describe('apiFetch', () => {
     expect(new Headers(init.headers).has('Authorization')).toBe(false)
   })
 })
+
+describe('cancelación', () => {
+  it('propaga AbortError sin convertirlo en error de conexión', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new DOMException('cancelada', 'AbortError')))
+
+    await expect(apiFetch('/api/pets')).rejects.toMatchObject({ name: 'AbortError' })
+  })
+})

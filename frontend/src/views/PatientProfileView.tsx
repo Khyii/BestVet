@@ -1,5 +1,16 @@
-import { View } from '../App'
-import { PATIENTS } from './DashboardView'
+import type { View } from '../App'
+
+// Datos de demostración: esta vista se conecta al backend en el siguiente paso (RF7, RF11, RF12).
+const PATIENTS = [
+  { id: 1, nombre: 'Canela', animal: 'Perro', raza: 'Golden Retriever', dueño: 'Ana Torres', correo: 'ana.torres@gmail.com', celular: '+52 55 8847 3021', fecha: '2024-03-12', estado: 'Activo', edad: '4 años', peso: '28 kg' },
+  { id: 2, nombre: 'Mochi', animal: 'Gato', raza: 'Siamés', dueño: 'Carlos Ruiz', correo: 'carlos.ruiz@gmail.com', celular: '+52 55 7124 8360', fecha: '2024-03-10', estado: 'Activo', edad: '2 años', peso: '4.8 kg' },
+  { id: 3, nombre: 'Rocky', animal: 'Perro', raza: 'Bulldog', dueño: 'Fernanda López', correo: 'fernanda.lopez@gmail.com', celular: '+52 55 6309 1427', fecha: '2024-03-08', estado: 'Seguimiento', edad: '6 años', peso: '23 kg' },
+  { id: 4, nombre: 'Luna', animal: 'Gato', raza: 'Persa', dueño: 'Miguel Salas', correo: 'miguel.salas@gmail.com', celular: '+52 55 9081 2764', fecha: '2024-03-05', estado: 'Activo', edad: '3 años', peso: '4.2 kg' },
+  { id: 5, nombre: 'Thor', animal: 'Perro', raza: 'Labrador', dueño: 'Valeria Méndez', correo: 'valeria.mendez@gmail.com', celular: '+52 55 3548 9210', fecha: '2024-02-28', estado: 'Inactivo', edad: '8 años', peso: '31 kg' },
+  { id: 6, nombre: 'Coco', animal: 'Ave', raza: 'Cotorra', dueño: 'Pablo Herrera', correo: 'pablo.herrera@gmail.com', celular: '+52 55 4820 6351', fecha: '2024-02-20', estado: 'Activo', edad: '2 años', peso: '320 g' },
+  { id: 7, nombre: 'Bella', animal: 'Perro', raza: 'Poodle', dueño: 'Diana Castillo', correo: 'diana.castillo@gmail.com', celular: '+52 55 7613 0842', fecha: '2024-02-14', estado: 'Seguimiento', edad: '5 años', peso: '7.4 kg' },
+  { id: 8, nombre: 'Nala', animal: 'Gato', raza: 'Maine Coon', dueño: 'Roberto Vega', correo: 'roberto.vega@gmail.com', celular: '+52 55 2197 5483', fecha: '2024-02-10', estado: 'Activo', edad: '4 años', peso: '6.1 kg' },
+]
 
 const HISTORIAL = [
   {
