@@ -61,7 +61,9 @@ async function request<T>(path: string, init: RequestInit, header: string | null
   let response: Response
   try {
     response = await fetch(path, { ...init, headers })
-  } catch {
+  } catch (err) {
+    // Una petición cancelada (por ejemplo, una búsqueda reemplazada por otra) no es un error de red.
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new ApiError(0, NETWORK_ERROR_MESSAGE)
   }
 

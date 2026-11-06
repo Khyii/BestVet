@@ -81,7 +81,11 @@ export default function App() {
             </div>
           )}
           {view === 'dashboard' && canOpen(me.role, 'dashboard') && (
-            <DashboardView onNavigate={navigate} onSelectPatient={openPatientProfile} />
+            <DashboardView
+              canRegister={canOpen(me.role, 'patient-form')}
+              onNavigate={navigate}
+              onSelectPatient={openPatientProfile}
+            />
           )}
           {view === 'patient-form' && canOpen(me.role, 'patient-form') && (
             <PatientFormView onNavigate={navigate} />
