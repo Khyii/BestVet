@@ -1,12 +1,9 @@
 import { useState } from 'react'
-
-const DEFAULT_USER = {
-  usuario: 'veterinario',
-  password: 'prueba1234',
-}
+import { ApiError, login } from '../api/client'
+import type { Me } from '../api/types'
 
 interface LoginViewProps {
-  onLogin: () => void
+  onLogin: (me: Me) => void
 }
 
 export default function LoginView({ onLogin }: LoginViewProps) {
@@ -15,24 +12,28 @@ export default function LoginView({ onLogin }: LoginViewProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!usuario || !password) {
+    if (!usuario.trim() || !password) {
       setError('Por favor completa todos los campos.')
-      return
-    }
-
-    if (usuario.trim() !== DEFAULT_USER.usuario || password !== DEFAULT_USER.password) {
-      setError('Usuario o contraseña incorrectos.')
       return
     }
 
     setError('')
     setLoading(true)
-    setTimeout(() => {
+    try {
+      const me = await login(usuario.trim(), password)
+      onLogin(me)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError('Usuario o contraseña incorrectos.')
+      } else if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Ocurrió un error inesperado al iniciar sesión.')
+      }
       setLoading(false)
-      onLogin()
-    }, 700)
+    }
   }
 
   return (
@@ -67,14 +68,15 @@ export default function LoginView({ onLogin }: LoginViewProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Usuario */}
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <label htmlFor="login-usuario" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
               Usuario
             </label>
             <input
+              id="login-usuario"
               type="text"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
-              placeholder="veterinario"
+              placeholder="Nombre de usuario"
               autoComplete="username"
               className="w-full px-3.5 py-2.5 rounded-lg text-sm outline-none transition-all duration-150"
               style={{
@@ -89,10 +91,11 @@ export default function LoginView({ onLogin }: LoginViewProps) {
 
           {/* Contraseña */}
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <label htmlFor="login-password" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
               Contraseña
             </label>
             <input
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -110,7 +113,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
           </div>
 
           {error && (
-            <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <p role="alert" className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
 
           <button
@@ -128,16 +131,10 @@ export default function LoginView({ onLogin }: LoginViewProps) {
           </button>
         </form>
 
-        <p className="text-center text-xs mt-6" style={{ color: 'var(--muted-foreground)' }}>
-          ¿Olvidaste tu contraseña?{' '}
-          <span className="cursor-pointer font-medium" style={{ color: 'var(--primary)' }}>
-            Recuperar acceso
-          </span>
-        </p>
       </div>
 
       <p className="text-xs mt-6" style={{ color: 'var(--muted-foreground)' }}>
-        © 2024 Best Vet · Todos los derechos reservados
+        © 2026 Best Vet · Todos los derechos reservados
       </p>
     </div>
   )

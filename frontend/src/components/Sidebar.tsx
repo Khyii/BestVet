@@ -1,17 +1,20 @@
-import { View } from '../App'
+import type { View } from '../App'
+import type { Role } from '../api/types'
 
-const NAV_ITEMS: { id: View; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Pacientes', icon: '🐾' },
-  { id: 'patient-profile', label: 'Historial', icon: '📁' },
-  { id: 'calendar', label: 'Citas', icon: '📅' },
+// Opciones del menú por rol. El historial clínico solo es accesible al veterinario (RF11, RF12).
+const NAV_ITEMS: { id: View; label: string; icon: string; roles: Role[] }[] = [
+  { id: 'dashboard', label: 'Pacientes', icon: '🐾', roles: ['SECRETARY', 'VETERINARIAN'] },
+  { id: 'patient-profile', label: 'Historial', icon: '📁', roles: ['VETERINARIAN'] },
+  { id: 'calendar', label: 'Citas', icon: '📅', roles: ['SECRETARY', 'VETERINARIAN'] },
 ]
 
 interface SidebarProps {
+  role: Role
   activeView: View
   onNavigate: (v: View) => void
 }
 
-export default function Sidebar({ activeView, onNavigate }: SidebarProps) {
+export default function Sidebar({ role, activeView, onNavigate }: SidebarProps) {
   return (
     <aside
       className="w-60 flex flex-col shrink-0 h-full border-r"
@@ -37,11 +40,13 @@ export default function Sidebar({ activeView, onNavigate }: SidebarProps) {
         <p className="px-3 py-2 text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--muted-foreground)' }}>
           Menú
         </p>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => item.roles.includes(role)).map((item) => {
           const active = activeView === item.id
           return (
             <button
+              type="button"
               key={item.id}
+              aria-current={active ? 'page' : undefined}
               onClick={() => onNavigate(item.id)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 text-left cursor-pointer"
               style={{

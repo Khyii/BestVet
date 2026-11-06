@@ -4,15 +4,15 @@ Frontend de Best Vet construido con React, TypeScript, Vite y Tailwind CSS.
 
 ## Requisitos
 
-- Node.js 22 o compatible con Vite 8.
-- npm.
+- Node.js 20.19 o superior (requisito de Vite 8).
+- npm (el proyecto usa `package-lock.json`; instalar con `npm ci`).
 
 ## Ejecutar en desarrollo
 
 Desde la carpeta del proyecto:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -27,25 +27,30 @@ npm run preview
 
 Los archivos de producción se generan en `dist/`.
 
-## Estado actual
+## Conexión con el backend
 
-Esta versión es únicamente el frontend. No contiene conexión a un backend ni a una base de datos. La interfaz utiliza datos de demostración definidos en el código; los cambios de formularios y citas se mantienen en memoria y no son persistentes.
+En desarrollo, el servidor de Vite reenvía las peticiones a `/api` hacia el backend Spring Boot
+(proxy definido en `vite.config.ts`). Por defecto el destino es `http://localhost:8081`; para usar
+otro puerto:
 
-El inicio de sesión también es simulado para permitir probar la interfaz:
-- Usuario: `veterinario`
-- Contraseña: `prueba1234`
+```bash
+BESTVET_BACKEND_URL=http://localhost:8080 npm run dev
+```
 
-Estas credenciales son solo para demostración, no son autenticación segura ni deben utilizarse en producción. La autenticación real, la persistencia de pacientes/citas y la autorización deben implementarse al integrar el backend Java.
+El inicio de sesión valida las credenciales contra `GET /api/me` mediante HTTP Basic. Las
+credenciales se guardan solo en memoria: al recargar la página se debe iniciar sesión de nuevo.
+Las opciones del menú dependen del rol devuelto por el backend (Secretaria o Veterinario).
+
+Las vistas de pacientes, historia clínica y citas aún usan datos de demostración y se conectan
+al backend de forma progresiva.
 
 ## Estructura principal
 
-- `src/App.tsx`: navegación principal y estado de sesión de demostración.
-- `src/components/Sidebar.tsx`: menú lateral.
+- `src/App.tsx`: navegación principal y sesión del usuario autenticado.
+- `src/api/`: cliente HTTP (HTTP Basic, manejo de errores) y tipos compartidos con el backend.
+- `src/auth/permissions.ts`: vistas permitidas por rol.
+- `src/components/Sidebar.tsx`: menú lateral filtrado por rol.
 - `src/views/`: pantallas de login, pacientes, formulario, perfil e historial, y calendario.
 - `src/index.css`: estilos globales y tema.
 - `index.html`: documento HTML de entrada.
 - `vite.config.ts`: configuración estándar de Vite, React y Tailwind CSS.
-
-## Integración futura con Java
-
-La interfaz está desacoplada de un backend específico. Cuando se defina la API, se pueden sustituir los datos de demostración por llamadas HTTP a los endpoints del backend y manejar sesión, errores y estados de carga.
