@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/pets")
+@RequestMapping("/api/pets")
 public class PetController {
     private final PetService service;
 
@@ -26,8 +26,19 @@ public class PetController {
         return service.findById(id);
     }
 
+    /** RF6. Todos los parámetros son opcionales y se combinan entre sí. */
     @GetMapping
-    public List<PetResponse> findByOwner(@RequestParam Long ownerId) {
-        return service.findByOwner(ownerId);
+    public List<PetResponse> search(@RequestParam(required = false) String q,
+                                    @RequestParam(required = false) String breed,
+                                    @RequestParam(required = false) String owner,
+                                    @RequestParam(required = false) Integer minAge,
+                                    @RequestParam(required = false) Integer maxAge,
+                                    @RequestParam(required = false) Long ownerId) {
+        return service.search(q, breed, owner, minAge, maxAge, ownerId);
+    }
+
+    @PutMapping("/{id}")
+    public PetResponse update(@PathVariable Long id, @Valid @RequestBody PetUpdateRequest request) {
+        return service.update(id, request);
     }
 }

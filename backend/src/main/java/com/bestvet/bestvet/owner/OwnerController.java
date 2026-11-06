@@ -30,4 +30,9 @@ public class OwnerController {
     public OwnerResponse findById(@PathVariable Long id) {
         return service.findById(id);
     }
+
+    @PutMapping("/{id}")
+    public OwnerResponse update(@PathVariable Long id, @Valid @RequestBody OwnerRequest request) {
+        return service.update(id, request);
+    }
 }

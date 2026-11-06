@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/vaccines").hasRole("VETERINARIAN")
                         // Propietarios y pacientes
                         .requestMatchers(HttpMethod.POST, "/api/owners", "/api/pets").hasRole("SECRETARY")
+                        .requestMatchers(HttpMethod.PUT, "/api/owners/*", "/api/pets/*").hasRole("SECRETARY")
                         .requestMatchers(HttpMethod.GET, "/api/owners/**", "/api/pets/**").hasAnyRole("SECRETARY", "VETERINARIAN")
                         // Personal
                         .requestMatchers(HttpMethod.POST, "/api/veterinarians", "/api/secretaries").hasRole("ADMIN")
