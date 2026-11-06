@@ -9,6 +9,8 @@ import com.bestvet.bestvet.staff.Veterinarian;
 import com.bestvet.bestvet.staff.VeterinarianRepository;
 import com.bestvet.bestvet.staff.Secretary;
 import com.bestvet.bestvet.staff.SecretaryRepository;
+import com.bestvet.bestvet.user.UserAccount;
+import com.bestvet.bestvet.user.UserAccountRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,18 +28,22 @@ public class AppointmentService {
     private final PetRepository petRepository;
     private final VeterinarianRepository veterinarianRepository;
     private final SecretaryRepository secretaryRepository;
+    private final UserAccountRepository userAccountRepository;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PetRepository petRepository,
-                              VeterinarianRepository veterinarianRepository, SecretaryRepository secretaryRepository) {
+                              VeterinarianRepository veterinarianRepository,
+                              SecretaryRepository secretaryRepository,
+                              UserAccountRepository userAccountRepository) {
         this.appointmentRepository = appointmentRepository;
         this.petRepository = petRepository;
         this.veterinarianRepository = veterinarianRepository;
         this.secretaryRepository = secretaryRepository;
+        this.userAccountRepository = userAccountRepository;
     }
 
     @Transactional
-    public AppointmentResponse create(AppointmentRequest request) {
+    public AppointmentResponse create(AppointmentRequest request, String username) {
         Pet pet = petRepository.findById(request.petId())
                 .orElseThrow(() -> new ResourceNotFoundException("Mascota no encontrada"));
         if (pet.getStatus() != PetStatus.ACTIVE) {
@@ -47,8 +53,7 @@ public class AppointmentService {
         Veterinarian vet = veterinarianRepository.findById(request.veterinarianId())
                 .orElseThrow(() -> new ResourceNotFoundException("Veterinario no encontrado"));
 
-        Secretary sec = secretaryRepository.findById(request.secretaryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Secretario no encontrado"));
+        Secretary sec = findSecretaryOf(username);
 
         checkAvailability(vet.getId(), request.scheduledAt());
 
@@ -112,6 +117,18 @@ public class AppointmentService {
         appointment.reschedule(request.newDate());
 
         return AppointmentResponse.from(appointment);
+    }
+
+    private Secretary findSecretaryOf(String username) {
+        UserAccount account = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Cuenta no encontrada"));
+        if (account.getStaffMember() == null) {
+            throw new ResourceNotFoundException("La cuenta no está asociada a una secretaria");
+        }
+        // Se busca por id en lugar de usar instanceof: con carga perezosa la
+        // referencia es un proxy de StaffMember, no de Secretary.
+        return secretaryRepository.findById(account.getStaffMember().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("La cuenta no está asociada a una secretaria"));
     }
 
     private Appointment getOrThrow(Long id) {

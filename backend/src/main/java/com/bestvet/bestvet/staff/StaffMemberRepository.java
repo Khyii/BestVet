@@ -3,6 +3,6 @@ package com.bestvet.bestvet.staff;
 import com.bestvet.bestvet.owner.DocumentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface StaffMemberRepository {
+public interface StaffMemberRepository extends JpaRepository<StaffMember, Long> {
     boolean existsByDocumentTypeAndDocumentNumber(DocumentType documentType, String documentNumber);
 }

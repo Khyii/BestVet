@@ -1,5 +1,6 @@
 package com.bestvet.bestvet.common;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -23,6 +24,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiError> handleConflict(ConflictException ex) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), null);
+    }
+
+    // Respaldo de las validaciones de unicidad: si dos peticiones simultáneas pasan
+    // la verificación del servicio, la restricción de la base de datos responde 409 y no 500.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleIntegrity(DataIntegrityViolationException ex) {
+        return build(HttpStatus.CONFLICT,
+                "La operación viola una restricción de datos (por ejemplo, un valor que debe ser único)", null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
