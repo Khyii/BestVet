@@ -61,11 +61,6 @@ public class AppointmentController {
         return service.cancel(id);
     }
 
-    @PatchMapping("/{id}/complete")
-    public AppointmentResponse complete(@PathVariable Long id) {
-        return service.complete(id);
-    }
-
     @PatchMapping("/{id}/didnt-show")
     public AppointmentResponse markDidntShow(@PathVariable Long id) {
         return service.markDidntShow(id);

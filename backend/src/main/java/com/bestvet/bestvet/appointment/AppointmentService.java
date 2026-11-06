@@ -105,14 +105,6 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentResponse complete(Long id) {
-        Appointment appointment = getOrThrow(id);
-        appointment.complete();
-
-        return AppointmentResponse.from(appointment);
-    }
-
-    @Transactional
     public AppointmentResponse markDidntShow(Long id) {
         Appointment appointment = getOrThrow(id);
         appointment.markDidntShow();

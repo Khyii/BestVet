@@ -45,7 +45,6 @@ public class SecurityConfig {
                         // Sesión
                         .requestMatchers(HttpMethod.GET, "/api/me").authenticated()
                         // Citas
-                        .requestMatchers(HttpMethod.PATCH, "/api/appointments/*/complete").hasRole("VETERINARIAN")
                         .requestMatchers(HttpMethod.POST, "/api/appointments").hasRole("SECRETARY")
                         .requestMatchers(HttpMethod.PATCH, "/api/appointments/**").hasRole("SECRETARY")
                         .requestMatchers(HttpMethod.GET, "/api/appointments/**").hasAnyRole("SECRETARY", "VETERINARIAN")
