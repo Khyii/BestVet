@@ -33,10 +33,17 @@ describe('validaciones del formulario', () => {
 
   it('RF4: exige nombre, especie y sexo, y rechaza fechas futuras y pesos no positivos', () => {
     const errors = validatePet(
-      { name: '', species: '', breed: '', sex: '', birthDate: '2030-01-01', weight: '0' },
+      { name: '', species: '', breed: '', sex: '', birthDate: '2030-01-01', weight: '0', observations: '' },
       '2026-11-06',
     )
     expect(Object.keys(errors).sort()).toEqual(['birthDate', 'name', 'sex', 'species', 'weight'])
+  })
+
+  it('RF4: las observaciones son opcionales y tienen un máximo de 500 caracteres', () => {
+    const base = { name: 'Canela', species: 'Perro', breed: '', sex: 'FEMALE' as const, birthDate: '', weight: '' }
+    expect(validatePet({ ...base, observations: '' })).toEqual({})
+    expect(validatePet({ ...base, observations: 'a'.repeat(500) })).toEqual({})
+    expect(validatePet({ ...base, observations: 'a'.repeat(501) }).observations).toBeDefined()
   })
 })
 
@@ -73,6 +80,7 @@ describe('PatientFormView', () => {
     await waitFor(() =>
       expect(createPet).toHaveBeenCalledWith({
         ownerId: 10, name: 'Canela', species: 'Perro', breed: null, sex: 'FEMALE', birthDate: null, weight: null,
+        observations: null,
       }),
     )
     expect(await screen.findByRole('status')).toHaveTextContent('Paciente registrado correctamente')

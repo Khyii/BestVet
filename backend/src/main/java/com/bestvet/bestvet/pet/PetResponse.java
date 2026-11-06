@@ -16,6 +16,7 @@ public record PetResponse(
         Sex sex,
         LocalDate birthDate,
         BigDecimal weight,
+        String observations,
         PetStatus status
 ) {
     public static PetResponse from(Pet pet) {
@@ -31,6 +32,7 @@ public record PetResponse(
                 pet.getSex(),
                 pet.getBirthDate(),
                 pet.getWeight(),
+                pet.getObservations(),
                 pet.getStatus()
         );
     }

@@ -78,7 +78,11 @@ export interface PetRequest {
   sex: Sex
   birthDate: string | null
   weight: number | null
+  observations: string | null
 }
+
+/** Longitud máxima de las observaciones; coincide con Pet.MAX_OBSERVATIONS del backend. */
+export const MAX_OBSERVATIONS = 500
 
 /** Respuesta de /api/pets (record PetResponse); incluye el contacto del propietario (RF7). */
 export interface Pet {
@@ -93,5 +97,6 @@ export interface Pet {
   sex: Sex
   birthDate: string | null
   weight: number | null
+  observations: string | null
   status: PetStatus
 }

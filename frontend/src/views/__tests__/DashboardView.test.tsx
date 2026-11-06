@@ -11,7 +11,7 @@ const searchMock = vi.mocked(searchPets)
 const PET: Pet = {
   id: 1, ownerId: 10, ownerName: 'Ana Torres', ownerPhone: '3001234567', ownerEmail: null,
   name: 'Canela', species: 'Perro', breed: 'Labrador', sex: 'FEMALE',
-  birthDate: null, weight: 28, status: 'ACTIVE',
+  birthDate: null, weight: 28, observations: null, status: 'ACTIVE',
 }
 
 const renderDashboard = (canRegister = true) =>
