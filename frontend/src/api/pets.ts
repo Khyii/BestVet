@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Pet, PetRequest } from './types'
+import type { Pet, PetRequest, PetUpdateRequest } from './types'
 
 /** Criterios de RF6. Todos son opcionales y el backend los combina entre sí. */
 export interface PetSearch {
@@ -34,4 +34,9 @@ export function getPet(id: number): Promise<Pet> {
 /** RF4 y CU05: POST /api/pets. El backend crea también la historia clínica vacía. */
 export function createPet(request: PetRequest): Promise<Pet> {
   return apiFetch<Pet>('/api/pets', { method: 'POST', body: JSON.stringify(request) })
+}
+
+/** RF5 y CU07: PUT /api/pets/{id}. Responde 400 si no hay cambios. */
+export function updatePet(id: number, request: PetUpdateRequest): Promise<Pet> {
+  return apiFetch<Pet>(`/api/pets/${id}`, { method: 'PUT', body: JSON.stringify(request) })
 }

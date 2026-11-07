@@ -24,3 +24,8 @@ export function canOpen(role: Role, view: View): boolean {
 export function homeView(role: Role): View | null {
   return ALLOWED_VIEWS[role][0] ?? null
 }
+
+/** Registro y edición de propietarios y pacientes (RF3, RF4, RF5): solo la secretaria. */
+export function canManagePatients(role: Role): boolean {
+  return role === 'SECRETARY'
+}
