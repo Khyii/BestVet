@@ -10,6 +10,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     boolean existsByVeterinarianIdAndScheduledAtAndStatusIn(
             Long veterinarianId, LocalDateTime scheduledAt, Collection<AppointmentStatus> statuses);
 
+    boolean existsByPetIdAndScheduledAtAndStatusIn(
+            Long petId, LocalDateTime scheduledAt, Collection<AppointmentStatus> statuses);
+
     List<Appointment> findByScheduledAtGreaterThanEqualAndScheduledAtLessThanOrderByScheduledAt(
             LocalDateTime start, LocalDateTime end);
 

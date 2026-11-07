@@ -16,7 +16,7 @@ import {
 } from '../api/types'
 import AppointmentForm from '../components/AppointmentForm'
 import { INPUT_CLASS } from '../components/Field'
-import { validateReschedule } from '../forms/appointmentForms'
+import { maxAppointmentDateTime, validateReschedule } from '../forms/appointmentForms'
 import { apiErrorMessage } from '../forms/patientForms'
 import { ACTION_LABELS, availableActions, isActive, type AppointmentAction } from '../utils/appointments'
 import { groupByDay, isoDay, monthGrid, monthRange, shiftMonth } from '../utils/calendar'
@@ -404,6 +404,7 @@ export default function CalendarView({ role, staffId, onStartConsultation }: Cal
                             id={`reprogramar-${a.id}`}
                             type="datetime-local"
                             min={nowLocalDateTime()}
+                            max={maxAppointmentDateTime()}
                             value={rescheduling.date}
                             onChange={(e) => setRescheduling({ id: a.id, date: e.target.value })}
                             className={INPUT_CLASS}

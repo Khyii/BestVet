@@ -14,6 +14,7 @@ import com.bestvet.bestvet.staff.CurrentStaffService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,19 +24,25 @@ public class AppointmentService {
     private static final List<AppointmentStatus> ACTIVE_STATUSES =
             List.of(AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED);
 
+    /** RF8: las citas se agendan como máximo a 2 meses de la fecha actual. */
+    static final int MAX_MONTHS_AHEAD = 2;
+
     private final AppointmentRepository appointmentRepository;
     private final PetRepository petRepository;
     private final VeterinarianRepository veterinarianRepository;
     private final CurrentStaffService currentStaffService;
+    private final Clock clock;
 
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PetRepository petRepository,
                               VeterinarianRepository veterinarianRepository,
-                              CurrentStaffService currentStaffService) {
+                              CurrentStaffService currentStaffService,
+                              Clock clock) {
         this.appointmentRepository = appointmentRepository;
         this.petRepository = petRepository;
         this.veterinarianRepository = veterinarianRepository;
         this.currentStaffService = currentStaffService;
+        this.clock = clock;
     }
 
     @Transactional
@@ -51,7 +58,9 @@ public class AppointmentService {
 
         Secretary sec = currentStaffService.currentSecretary(username);
 
+        validateDate(request.scheduledAt());
         checkAvailability(vet.getId(), request.scheduledAt());
+        checkPetAvailability(pet.getId(), request.scheduledAt());
 
         Appointment appointment = new Appointment(
                 pet, vet, sec, request.scheduledAt(), request.reason(), request.observations());
@@ -115,7 +124,9 @@ public class AppointmentService {
     @Transactional
     public AppointmentResponse reschedule(Long id, RescheduleRequest request) {
         Appointment appointment = getOrThrow(id);
+        validateDate(request.newDate());
         checkAvailability(appointment.getVeterinarian().getId(), request.newDate());
+        checkPetAvailability(appointment.getPet().getId(), request.newDate());
         appointment.reschedule(request.newDate());
 
         return AppointmentResponse.from(appointment);
@@ -130,6 +141,25 @@ public class AppointmentService {
         if (appointmentRepository.existsByVeterinarianIdAndScheduledAtAndStatusIn(
                 veterinarianId, scheduledAt, ACTIVE_STATUSES)) {
             throw new ConflictException("El veterinario ya tiene una cita a esa hora");
+        }
+    }
+
+    // RF8: un paciente no puede tener dos citas activas a la misma fecha y hora.
+    private void checkPetAvailability(Long petId, LocalDateTime scheduledAt) {
+        if (appointmentRepository.existsByPetIdAndScheduledAtAndStatusIn(
+                petId, scheduledAt, ACTIVE_STATUSES)) {
+            throw new ConflictException("El paciente ya tiene una cita a esa hora");
+        }
+    }
+
+    // RF8: no se agenda en el pasado ni a más de MAX_MONTHS_AHEAD meses. Reprogramar aplica la misma regla (RF9).
+    private void validateDate(LocalDateTime scheduledAt) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!scheduledAt.isAfter(now)) {
+            throw new BadRequestException("La fecha y hora de la cita deben ser posteriores al momento actual");
+        }
+        if (scheduledAt.isAfter(now.plusMonths(MAX_MONTHS_AHEAD))) {
+            throw new BadRequestException("No se pueden agendar citas a más de " + MAX_MONTHS_AHEAD + " meses");
         }
     }
 }

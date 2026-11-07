@@ -5,6 +5,7 @@ import { PET_STATUS_LABELS, type Appointment, type Pet, type Veterinarian } from
 import {
   EMPTY_APPOINTMENT,
   appointmentFormToRequest,
+  maxAppointmentDateTime,
   validateAppointment,
   type AppointmentForm as Form,
 } from '../forms/appointmentForms'
@@ -161,6 +162,7 @@ export default function AppointmentForm({ veterinarians, defaultDay, onCreated, 
           {...fieldAria('cita-fecha', errors.scheduledAt)}
           type="datetime-local"
           min={nowLocalDateTime()}
+          max={maxAppointmentDateTime()}
           value={form.scheduledAt}
           onChange={set('scheduledAt')}
           className={INPUT_CLASS}
