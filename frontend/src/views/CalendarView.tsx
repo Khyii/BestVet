@@ -1,141 +1,281 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  cancelAppointment,
+  confirmAppointment,
+  listAppointments,
+  listVeterinarians,
+  markDidntShow,
+  rescheduleAppointment,
+} from '../api/appointments'
+import {
+  APPOINTMENT_STATUS_LABELS,
+  type Appointment,
+  type AppointmentStatus,
+  type Role,
+  type Veterinarian,
+} from '../api/types'
+import AppointmentForm from '../components/AppointmentForm'
+import { INPUT_CLASS } from '../components/Field'
+import { validateReschedule } from '../forms/appointmentForms'
+import { apiErrorMessage } from '../forms/patientForms'
+import { ACTION_LABELS, availableActions, isActive, type AppointmentAction } from '../utils/appointments'
+import { groupByDay, isoDay, monthGrid, monthRange, shiftMonth } from '../utils/calendar'
+import { formatDate, nowLocalDateTime } from '../utils/dates'
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ]
+const MAX_BLOCKS_PER_DAY = 3
 
-interface Appointment {
-  id: number
-  day: number
-  patient: string
-  time: string
-  reason: string
-  color: string
+export const STATUS_COLORS: Record<AppointmentStatus, { background: string; color: string }> = {
+  SCHEDULED: { background: '#dbeafe', color: '#1d4ed8' },
+  CONFIRMED: { background: '#dcfce7', color: '#15803d' },
+  COMPLETED: { background: '#ede9fe', color: '#6d28d9' },
+  DIDNT_SHOW: { background: '#ffedd5', color: '#c2410c' },
+  CANCELLED: { background: '#f3f4f6', color: '#6b7280' },
 }
 
-const INITIAL_APPOINTMENTS: Appointment[] = [
-  { id: 1, day: 5, patient: 'Canela (Ana Torres)', time: '09:00', reason: 'Revisión general', color: '#dbeafe' },
-  { id: 2, day: 5, patient: 'Mochi (Carlos Ruiz)', time: '10:30', reason: 'Vacunación', color: '#dcfce7' },
-  { id: 3, day: 8, patient: 'Rocky (Fernanda López)', time: '11:00', reason: 'Control post-cirugía', color: '#fef9c3' },
-  { id: 4, day: 12, patient: 'Luna (Miguel Salas)', time: '09:30', reason: 'Revisión de piel', color: '#fce7f3' },
-  { id: 5, day: 15, patient: 'Thor (Valeria Méndez)', time: '14:00', reason: 'Desparasitación', color: '#ede9fe' },
-  { id: 6, day: 20, patient: 'Bella (Diana Castillo)', time: '10:00', reason: 'Consulta urgente', color: '#ffedd5' },
-  { id: 7, day: 22, patient: 'Nala (Roberto Vega)', time: '16:00', reason: 'Revisión general', color: '#dbeafe' },
-]
-
-const PATIENTS = ['Canela (Ana Torres)', 'Mochi (Carlos Ruiz)', 'Rocky (Fernanda López)', 'Luna (Miguel Salas)', 'Thor (Valeria Méndez)', 'Bella (Diana Castillo)', 'Nala (Roberto Vega)']
-const TIMES = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00']
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate()
-}
-function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay()
+const NOTICES: Record<Exclude<AppointmentAction, 'complete'>, string> = {
+  confirm: 'Cita confirmada.',
+  cancel: 'Cita cancelada.',
+  didntShow: 'Cita marcada como no asistió.',
+  reschedule: 'Cita reprogramada.',
 }
 
-export default function CalendarView() {
+// Las acciones que llevan a un estado final piden confirmación (RF9: no se pueden deshacer).
+const CONFIRMATIONS: Partial<Record<AppointmentAction, string>> = {
+  cancel: '¿Cancelar esta cita? La acción no se puede deshacer.',
+  didntShow: '¿Marcar esta cita como no asistió? La acción no se puede deshacer.',
+}
+
+const time = (iso: string) => iso.slice(11, 16)
+
+interface CalendarViewProps {
+  role: Role
+  /** Identificador del veterinario autenticado, para mostrar su agenda por defecto. */
+  staffId: number | null
+  /** CU16: el veterinario registra la consulta de una cita confirmada. */
+  onStartConsultation: (appointment: Appointment) => void
+}
+
+export default function CalendarView({ role, staffId, onStartConsultation }: CalendarViewProps) {
   const today = new Date()
+  const todayKey = isoDay(today.getFullYear(), today.getMonth(), today.getDate())
+
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
-  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate())
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS)
-  const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ patient: '', date: '', time: '', reason: '' })
-  const [saved, setSaved] = useState(false)
+  const [selectedDay, setSelectedDay] = useState(todayKey)
+  const [vetFilter, setVetFilter] = useState<string>(role === 'VETERINARIAN' && staffId ? String(staffId) : '')
+  const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([])
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [creating, setCreating] = useState(false)
 
-  const daysInMonth = getDaysInMonth(year, month)
-  const firstDay = getFirstDayOfMonth(year, month)
+  // Acciones sobre una cita
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [actionError, setActionError] = useState<{ id: number; message: string } | null>(null)
+  const [rescheduling, setRescheduling] = useState<{ id: number; date: string } | null>(null)
 
-  const prevMonth = () => {
-    if (month === 0) { setMonth(11); setYear(y => y - 1) }
-    else setMonth(m => m - 1)
-    setSelectedDay(null)
+  useEffect(() => {
+    listVeterinarians().then(setVeterinarians).catch(() => setVeterinarians([]))
+  }, [])
+
+  // RF10: citas del mes visible, opcionalmente de un solo veterinario.
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { from, to } = monthRange(year, month)
+      setAppointments(await listAppointments(from, to, vetFilter ? Number(vetFilter) : null))
+      setLoadError('')
+    } catch (err) {
+      setLoadError(apiErrorMessage(err).message)
+      setAppointments([])
+    } finally {
+      setLoading(false)
+    }
+  }, [year, month, vetFilter])
+
+  useEffect(() => { void load() }, [load])
+
+  const byDay = useMemo(() => groupByDay(appointments, (a) => a.scheduledAt), [appointments])
+  const cells = monthGrid(year, month)
+  const dayAppointments = byDay[selectedDay] ?? []
+
+  const goToMonth = (delta: number) => {
+    const next = shiftMonth(year, month, delta)
+    setYear(next.year)
+    setMonth(next.month)
+    setSelectedDay(isoDay(next.year, next.month, 1))
+    setCreating(false)
   }
-  const nextMonth = () => {
-    if (month === 11) { setMonth(0); setYear(y => y + 1) }
-    else setMonth(m => m + 1)
-    setSelectedDay(null)
+
+  const goToToday = () => {
+    setYear(today.getFullYear())
+    setMonth(today.getMonth())
+    setSelectedDay(todayKey)
   }
 
-  const dayAppointments = (day: number) => appointments.filter((a) => a.day === day)
-  const selectedAppointments = selectedDay ? dayAppointments(selectedDay) : []
+  const runAction = async (appointment: Appointment, action: AppointmentAction) => {
+    if (action === 'complete') {
+      onStartConsultation(appointment)
+      return
+    }
+    if (action === 'reschedule') {
+      setRescheduling({ id: appointment.id, date: '' })
+      setActionError(null)
+      return
+    }
+    const question = CONFIRMATIONS[action]
+    if (question && !window.confirm(question)) return
 
-  const ACCENT_COLORS = ['#dbeafe', '#dcfce7', '#fce7f3', '#ede9fe', '#ffedd5', '#fef9c3']
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault()
-    const day = form.date ? new Date(form.date).getDate() : 0
-    setAppointments((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        day,
-        patient: form.patient,
-        time: form.time,
-        reason: form.reason,
-        color: ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)],
-      },
-    ])
-    setSaved(true)
-    setTimeout(() => { setSaved(false); setShowModal(false); setForm({ patient: '', date: '', time: '', reason: '' }) }, 1000)
+    setBusyId(appointment.id)
+    setActionError(null)
+    setNotice('')
+    try {
+      if (action === 'confirm') await confirmAppointment(appointment.id)
+      if (action === 'cancel') await cancelAppointment(appointment.id)
+      if (action === 'didntShow') await markDidntShow(appointment.id)
+      setNotice(NOTICES[action])
+      await load()
+    } catch (err) {
+      // Una transición no permitida responde 409 con el motivo (RF9).
+      setActionError({ id: appointment.id, message: apiErrorMessage(err).message })
+    } finally {
+      setBusyId(null)
+    }
   }
 
-  const inputClass = "w-full px-3.5 py-2.5 rounded-lg text-sm outline-none"
-  const inputStyle = { border: '1.5px solid var(--border)', background: 'var(--muted)', color: 'var(--foreground)' }
-  const focusStyle = (e: React.FocusEvent<any>) => { e.target.style.borderColor = 'var(--primary)'; e.target.style.background = '#fff' }
-  const blurStyle = (e: React.FocusEvent<any>) => { e.target.style.borderColor = 'var(--border)'; e.target.style.background = 'var(--muted)' }
+  const saveReschedule = async (appointment: Appointment) => {
+    if (!rescheduling) return
+    const problem = validateReschedule(rescheduling.date)
+    if (problem) {
+      setActionError({ id: appointment.id, message: problem })
+      return
+    }
+    setBusyId(appointment.id)
+    setActionError(null)
+    setNotice('')
+    try {
+      const updated = await rescheduleAppointment(appointment.id, rescheduling.date)
+      setRescheduling(null)
+      setNotice(NOTICES.reschedule)
+      // La cita puede pasar a otro día o a otro mes: se muestra donde quedó.
+      const [y, m] = updated.scheduledAt.split('-').map(Number)
+      if (y !== year || m - 1 !== month) {
+        setYear(y)
+        setMonth(m - 1)
+      } else {
+        await load()
+      }
+      setSelectedDay(updated.scheduledAt.slice(0, 10))
+    } catch (err) {
+      setActionError({ id: appointment.id, message: apiErrorMessage(err).message })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleCreated = async (appointment: Appointment) => {
+    setCreating(false)
+    setNotice('Cita agendada.')
+    const day = appointment.scheduledAt.slice(0, 10)
+    const [y, m] = day.split('-').map(Number)
+    setSelectedDay(day)
+    if (y !== year || m - 1 !== month) {
+      setYear(y)
+      setMonth(m - 1)
+    } else {
+      await load()
+    }
+  }
+
+  const activeCount = appointments.filter((a) => isActive(a.status)).length
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+    <div className="p-8 space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-          >
+          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}>
             Calendario de citas
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-            {appointments.length} citas programadas este mes
+          <p className="text-sm mt-0.5" style={{ color: 'var(--muted-foreground)' }} aria-live="polite">
+            {loading ? 'Cargando...' : `${activeCount} ${activeCount === 1 ? 'cita activa' : 'citas activas'} en el mes`}
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all duration-150"
-          style={{ background: 'var(--primary)', fontFamily: 'var(--font-display)' }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#0070e0')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--primary)')}
-        >
-          <span>+</span> Nueva cita
-        </button>
+        <div className="flex items-end gap-3">
+          <div>
+            <label htmlFor="filtro-veterinario" className="block text-xs font-medium mb-1" style={{ color: 'var(--muted-foreground)' }}>
+              Veterinario
+            </label>
+            <select
+              id="filtro-veterinario"
+              value={vetFilter}
+              onChange={(e) => setVetFilter(e.target.value)}
+              className={INPUT_CLASS + ' cursor-pointer'}
+            >
+              <option value="">Todos</option>
+              {veterinarians.map((v) => <option key={v.id} value={v.id}>{v.firstName} {v.lastName}</option>)}
+            </select>
+          </div>
+          {role === 'SECRETARY' && (
+            <button
+              type="button"
+              onClick={() => { setCreating(true); setNotice('') }}
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer hover:opacity-90"
+              style={{ background: 'var(--primary)', fontFamily: 'var(--font-display)' }}
+            >
+              <span aria-hidden="true">+</span> Nueva cita
+            </button>
+          )}
+        </div>
       </div>
 
+      {notice && (
+        <p role="status" className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#ecfdf5', color: '#047857' }}>
+          {notice}
+        </p>
+      )}
+      {loadError && (
+        <p role="alert" className="px-4 py-3 rounded-xl text-sm" style={{ background: '#fef2f2', color: '#b91c1c' }}>
+          {loadError}
+        </p>
+      )}
+
       <div className="grid grid-cols-3 gap-6">
-        {/* Calendar grid */}
-        <div
-          className="col-span-2 rounded-xl overflow-hidden"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-        >
-          {/* Month nav */}
+        {/* Calendario mensual (RF10, CU17) */}
+        <div className="col-span-2 rounded-xl overflow-hidden" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
           <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
             <button
-              onClick={prevMonth}
+              type="button"
+              onClick={() => goToMonth(-1)}
+              aria-label="Mes anterior"
               className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:opacity-70 text-sm"
               style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             >
               ‹
             </button>
-            <h2
-              className="text-base font-semibold"
-              style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-            >
-              {MONTHS[month]} {year}
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}>
+                {MONTHS[month]} {year}
+              </h2>
+              <button
+                type="button"
+                onClick={goToToday}
+                className="text-xs px-2.5 py-1 rounded-full cursor-pointer"
+                style={{ background: 'var(--brand-light)', color: 'var(--primary)' }}
+              >
+                Hoy
+              </button>
+            </div>
             <button
-              onClick={nextMonth}
+              type="button"
+              onClick={() => goToMonth(1)}
+              aria-label="Mes siguiente"
               className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:opacity-70 text-sm"
               style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
             >
@@ -143,252 +283,185 @@ export default function CalendarView() {
             </button>
           </div>
 
-          {/* Day headers */}
-          <div className="grid grid-cols-7" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="grid grid-cols-7" role="grid" aria-label={`${MONTHS[month]} ${year}`}>
             {DAYS_OF_WEEK.map((d) => (
-              <div
-                key={d}
-                className="py-2.5 text-center text-xs font-semibold uppercase tracking-wider"
-                style={{ color: 'var(--muted-foreground)' }}
-              >
+              <div key={d} role="columnheader" className="py-2 text-center text-xs font-semibold" style={{ color: 'var(--muted-foreground)', borderBottom: '1px solid var(--border)' }}>
                 {d}
               </div>
             ))}
-          </div>
-
-          {/* Days grid */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="h-24 p-2" style={{ borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }} />
-            ))}
-
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1
-              const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
-              const isSelected = day === selectedDay
-              const appts = dayAppointments(day)
+            {cells.map((day, i) => {
+              if (day === null) {
+                return <div key={`vacio-${i}`} className="min-h-24" style={{ borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', background: 'var(--muted)' }} />
+              }
+              const key = isoDay(year, month, day)
+              const items = byDay[key] ?? []
+              const selected = key === selectedDay
               return (
-                <div
-                  key={day}
-                  onClick={() => setSelectedDay(day)}
-                  className="h-24 p-2 cursor-pointer transition-colors duration-100 overflow-hidden"
+                <button
+                  key={key}
+                  type="button"
+                  role="gridcell"
+                  aria-selected={selected}
+                  aria-label={`${day} de ${MONTHS[month].toLowerCase()}, ${items.length} ${items.length === 1 ? 'cita' : 'citas'}`}
+                  onClick={() => { setSelectedDay(key); setCreating(false) }}
+                  className="min-h-24 p-1.5 text-left align-top cursor-pointer transition-colors hover:bg-[#f8faff]"
                   style={{
                     borderBottom: '1px solid var(--border)',
                     borderRight: '1px solid var(--border)',
-                    background: isSelected ? '#f0f7ff' : 'transparent',
+                    outline: selected ? '2px solid var(--primary)' : 'none',
+                    outlineOffset: '-2px',
                   }}
-                  onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#f8faff' }}
-                  onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                 >
-                  <div
-                    className="w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium mb-1"
-                    style={{
-                      background: isToday ? 'var(--primary)' : 'transparent',
-                      color: isToday ? '#fff' : 'var(--foreground)',
-                      fontFamily: isToday ? 'var(--font-display)' : undefined,
-                    }}
+                  <span
+                    className="inline-flex w-6 h-6 items-center justify-center rounded-full text-xs font-semibold"
+                    style={key === todayKey ? { background: 'var(--primary)', color: '#fff' } : { color: 'var(--foreground)' }}
                   >
                     {day}
-                  </div>
-                  <div className="space-y-0.5">
-                    {appts.slice(0, 2).map((a) => (
+                  </span>
+                  <div className="mt-1 space-y-0.5" aria-hidden="true">
+                    {items.slice(0, MAX_BLOCKS_PER_DAY).map((a) => (
                       <div
                         key={a.id}
-                        className="text-xs px-1.5 py-0.5 rounded truncate font-medium"
-                        style={{ background: a.color, color: '#374151' }}
+                        className="truncate rounded px-1 text-[11px] leading-5"
+                        style={{
+                          ...STATUS_COLORS[a.status],
+                          textDecoration: a.status === 'CANCELLED' ? 'line-through' : undefined,
+                        }}
                       >
-                        {a.time} {a.patient.split(' ')[0]}
+                        {time(a.scheduledAt)} {a.petName}
                       </div>
                     ))}
-                    {appts.length > 2 && (
-                      <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                        +{appts.length - 2} más
+                    {items.length > MAX_BLOCKS_PER_DAY && (
+                      <div className="text-[11px] px-1" style={{ color: 'var(--muted-foreground)' }}>
+                        +{items.length - MAX_BLOCKS_PER_DAY} más
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
-        </div>
 
-        {/* Day detail panel */}
-        <div
-          className="rounded-xl p-5"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-        >
-          <h3
-            className="text-sm font-semibold mb-4"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-          >
-            {selectedDay
-              ? `${selectedDay} de ${MONTHS[month]}`
-              : 'Selecciona un día'}
-          </h3>
-
-          {selectedDay && selectedAppointments.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-2xl mb-2">📅</p>
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                Sin citas para este día
-              </p>
-              <button
-                onClick={() => setShowModal(true)}
-                className="text-xs mt-3 px-3 py-1.5 rounded-lg font-medium cursor-pointer"
-                style={{ background: 'var(--brand-light, #e8f3ff)', color: 'var(--primary)' }}
-              >
-                + Agendar cita
-              </button>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {selectedAppointments.map((a) => (
-              <div
-                key={a.id}
-                className="p-3 rounded-xl"
-                style={{ background: a.color, border: '1px solid rgba(0,0,0,0.06)' }}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold" style={{ color: '#374151' }}>{a.time}</span>
-                </div>
-                <p className="text-sm font-semibold" style={{ color: '#111827' }}>{a.patient.split('(')[0].trim()}</p>
-                <p className="text-xs" style={{ color: '#6b7280' }}>{a.reason}</p>
-                {a.patient.includes('(') && (
-                  <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
-                    Dueño: {a.patient.match(/\((.+)\)/)?.[1]}
-                  </p>
-                )}
-              </div>
+          {/* Leyenda de estados */}
+          <div className="flex flex-wrap gap-3 px-6 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+            {(Object.keys(APPOINTMENT_STATUS_LABELS) as AppointmentStatus[]).map((s) => (
+              <span key={s} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                <span aria-hidden="true" className="w-3 h-3 rounded" style={{ background: STATUS_COLORS[s].background, border: `1px solid ${STATUS_COLORS[s].color}` }} />
+                {APPOINTMENT_STATUS_LABELS[s]}
+              </span>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Appointment modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false) }}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl shadow-xl p-6"
-            style={{ background: 'var(--card)' }}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2
-                className="text-lg font-bold"
-                style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-              >
-                Nueva cita
+        {/* Panel lateral: citas del día o formulario de agendamiento */}
+        <aside className="rounded-xl p-5 space-y-4 self-start" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+          {creating ? (
+            <AppointmentForm
+              veterinarians={veterinarians}
+              defaultDay={selectedDay}
+              onCreated={handleCreated}
+              onCancel={() => setCreating(false)}
+            />
+          ) : (
+            <>
+              <h2 className="text-sm font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}>
+                {formatDate(selectedDay)}
               </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:opacity-70 text-sm"
-                style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}
-              >
-                ✕
-              </button>
-            </div>
+              {dayAppointments.length === 0 && (
+                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Sin citas este día.</p>
+              )}
+              <ul className="space-y-3">
+                {dayAppointments.map((a) => {
+                  const actions = availableActions(a.status, role)
+                  const isRescheduling = rescheduling?.id === a.id
+                  return (
+                    <li key={a.id} className="rounded-lg p-3 space-y-2" style={{ border: '1px solid var(--border)', opacity: isActive(a.status) || a.status === 'COMPLETED' ? 1 : 0.75 }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--foreground)', textDecoration: a.status === 'CANCELLED' ? 'line-through' : undefined }}>
+                            {time(a.scheduledAt)} · {a.petName}
+                          </p>
+                          <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{a.ownerName}</p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold shrink-0" style={STATUS_COLORS[a.status]}>
+                          {APPOINTMENT_STATUS_LABELS[a.status]}
+                        </span>
+                      </div>
+                      <p className="text-sm" style={{ color: 'var(--foreground)' }}>{a.reason}</p>
+                      <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                        Veterinario: {a.veterinarianName} · Agendó: {a.secretaryName}
+                      </p>
+                      {a.observations && (
+                        <p className="text-xs whitespace-pre-line" style={{ color: 'var(--muted-foreground)' }}>{a.observations}</p>
+                      )}
 
-            {saved ? (
-              <div className="py-8 text-center">
-                <p className="text-3xl mb-2">✅</p>
-                <p className="text-sm font-medium" style={{ color: '#059669' }}>Cita registrada correctamente</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSave} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
-                    Paciente <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <select
-                    required
-                    value={form.patient}
-                    onChange={(e) => setForm((f) => ({ ...f, patient: e.target.value }))}
-                    className={inputClass + ' cursor-pointer'}
-                    style={inputStyle}
-                  >
-                    <option value="">Seleccionar paciente...</option>
-                    {PATIENTS.map((p) => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
+                      {isRescheduling && (
+                        <div className="space-y-2">
+                          <label htmlFor={`reprogramar-${a.id}`} className="block text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                            Nueva fecha y hora
+                          </label>
+                          <input
+                            id={`reprogramar-${a.id}`}
+                            type="datetime-local"
+                            min={nowLocalDateTime()}
+                            value={rescheduling.date}
+                            onChange={(e) => setRescheduling({ id: a.id, date: e.target.value })}
+                            className={INPUT_CLASS}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={busyId === a.id}
+                              onClick={() => void saveReschedule(a)}
+                              className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white cursor-pointer disabled:opacity-60"
+                              style={{ background: 'var(--primary)' }}
+                            >
+                              Guardar nueva fecha
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setRescheduling(null); setActionError(null) }}
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer"
+                              style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}
+                            >
+                              Volver
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
-                      Fecha <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={form.date}
-                      onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                      className={inputClass}
-                      style={inputStyle}
-                      onFocus={focusStyle}
-                      onBlur={blurStyle}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
-                      Hora <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <select
-                      required
-                      value={form.time}
-                      onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                      className={inputClass + ' cursor-pointer'}
-                      style={inputStyle}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {TIMES.map((t) => <option key={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
+                      {!isRescheduling && actions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {actions.map((action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              disabled={busyId === a.id}
+                              onClick={() => void runAction(a, action)}
+                              className="text-xs px-2.5 py-1.5 rounded-lg font-medium cursor-pointer disabled:opacity-60"
+                              style={
+                                action === 'cancel' || action === 'didntShow'
+                                  ? { background: '#fef2f2', color: '#b91c1c' }
+                                  : { background: 'var(--brand-light)', color: 'var(--primary)' }
+                              }
+                            >
+                              {ACTION_LABELS[action]}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
-                <div>
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
-                    Motivo <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.reason}
-                    onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
-                    placeholder="ej. Revisión general, vacunación..."
-                    className={inputClass}
-                    style={inputStyle}
-                    onFocus={focusStyle}
-                    onBlur={blurStyle}
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all duration-150"
-                    style={{ background: 'var(--primary)', fontFamily: 'var(--font-display)' }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#0070e0')}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--primary)')}
-                  >
-                    Guardar cita
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer"
-                    style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+                      {actionError?.id === a.id && (
+                        <p role="alert" className="text-xs" style={{ color: '#b91c1c' }}>{actionError.message}</p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }

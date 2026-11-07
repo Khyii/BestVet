@@ -6,7 +6,7 @@ import PatientProfileView from './views/PatientProfileView'
 import CalendarView from './views/CalendarView'
 import Sidebar from './components/Sidebar'
 import { logout } from './api/client'
-import { ROLE_LABELS, type Me } from './api/types'
+import { ROLE_LABELS, type Appointment, type Me } from './api/types'
 import { canManagePatients, canOpen, canUseMedicalRecord, homeView } from './auth/permissions'
 
 export type View = 'login' | 'dashboard' | 'patient-form' | 'patient-profile' | 'calendar'
@@ -21,6 +21,8 @@ export default function App() {
   const [view, setView] = useState<View>('login')
   // El perfil se abre siempre desde un paciente concreto del panel (CU08, paso d).
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null)
+  // CU16: cita de origen de la consulta que el veterinario va a registrar.
+  const [consultationOrigin, setConsultationOrigin] = useState<Appointment | null>(null)
 
   if (!me) {
     return (
@@ -35,11 +37,20 @@ export default function App() {
 
   // Ignora la navegación hacia vistas que el rol no puede usar.
   const navigate = (next: View) => {
-    if (canOpen(me.role, next)) setView(next)
+    if (!canOpen(me.role, next)) return
+    if (next !== 'patient-profile') setConsultationOrigin(null)
+    setView(next)
   }
 
   const openPatientProfile = (patientId: number) => {
+    setConsultationOrigin(null)
     setSelectedPatientId(patientId)
+    navigate('patient-profile')
+  }
+
+  const startConsultation = (appointment: Appointment) => {
+    setSelectedPatientId(appointment.petId)
+    setConsultationOrigin(appointment)
     navigate('patient-profile')
   }
 
@@ -47,6 +58,7 @@ export default function App() {
     logout()
     setMe(null)
     setSelectedPatientId(null)
+    setConsultationOrigin(null)
     setView('login')
   }
 
@@ -97,10 +109,14 @@ export default function App() {
               patientId={selectedPatientId}
               canEdit={canManagePatients(me.role)}
               showMedicalRecord={canUseMedicalRecord(me.role)}
+              consultationOrigin={consultationOrigin}
+              onConsultationOriginHandled={() => setConsultationOrigin(null)}
               onNavigate={navigate}
             />
           )}
-          {view === 'calendar' && canOpen(me.role, 'calendar') && <CalendarView />}
+          {view === 'calendar' && canOpen(me.role, 'calendar') && (
+            <CalendarView role={me.role} staffId={me.staffId} onStartConsultation={startConsultation} />
+          )}
         </main>
       </div>
     </div>

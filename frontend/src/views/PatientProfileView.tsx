@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { View } from '../App'
 import { getOwner, updateOwner } from '../api/owners'
 import { getPet, updatePet } from '../api/pets'
-import { DOCUMENT_TYPE_LABELS, PET_STATUS_LABELS, SEX_LABELS, type Owner, type Pet, type PetStatus } from '../api/types'
+import { DOCUMENT_TYPE_LABELS, PET_STATUS_LABELS, SEX_LABELS, type Appointment, type Owner, type Pet, type PetStatus } from '../api/types'
 import MedicalRecordSection from '../components/MedicalRecordSection'
 import OwnerFields from '../components/OwnerFields'
 import PetFields from '../components/PetFields'
@@ -64,10 +64,15 @@ interface PatientProfileViewProps {
   canEdit: boolean
   /** Solo el veterinario ve y registra la historia clínica (RF11, RF12). */
   showMedicalRecord: boolean
+  /** CU16: cita de la que proviene la consulta que se va a registrar. */
+  consultationOrigin?: Appointment | null
+  onConsultationOriginHandled?: () => void
   onNavigate: (v: View) => void
 }
 
-export default function PatientProfileView({ patientId, canEdit, showMedicalRecord, onNavigate }: PatientProfileViewProps) {
+export default function PatientProfileView({
+  patientId, canEdit, showMedicalRecord, consultationOrigin = null, onConsultationOriginHandled, onNavigate,
+}: PatientProfileViewProps) {
   const [pet, setPet] = useState<Pet | null>(null)
   const [owner, setOwner] = useState<Owner | null>(null)
   const [loadError, setLoadError] = useState('')
@@ -323,7 +328,13 @@ export default function PatientProfileView({ patientId, canEdit, showMedicalReco
             )}
           </section>
 
-          {showMedicalRecord && <MedicalRecordSection petId={pet.id} />}
+          {showMedicalRecord && (
+            <MedicalRecordSection
+              petId={pet.id}
+              origin={consultationOrigin?.petId === pet.id ? consultationOrigin : null}
+              onOriginHandled={onConsultationOriginHandled}
+            />
+          )}
         </>
       )}
     </div>

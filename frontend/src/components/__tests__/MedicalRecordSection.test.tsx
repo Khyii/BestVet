@@ -114,4 +114,27 @@ describe('MedicalRecordSection', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('La fecha inicial no puede ser posterior a la fecha final')
   })
+
+  it('CU16: desde una cita abre la consulta con su motivo y la liga al guardar', async () => {
+    const origin = {
+      id: 9, petId: 7, petName: 'Canela', ownerName: 'Ana Torres', veterinarianId: 2, veterinarianName: 'Laura Gómez',
+      secretaryId: 5, secretaryName: 'Marta Ruiz', scheduledAt: '2026-11-07T15:00:00', reason: 'Control de piel',
+      status: 'CONFIRMED' as const, observations: null,
+    }
+    const onHandled = vi.fn()
+    render(<MedicalRecordSection petId={7} origin={origin} onOriginHandled={onHandled} />)
+
+    expect(await screen.findByLabelText(/^Motivo/)).toHaveValue('Control de piel')
+    expect(screen.getByText(/la cita quedará completada/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Diagnóstico'), { target: { value: 'Dermatitis' } })
+    fireEvent.change(screen.getByLabelText('Tratamiento y medicación'), { target: { value: 'Champú medicado' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar consulta' }))
+
+    await waitFor(() =>
+      expect(registerConsultation).toHaveBeenCalledWith(7, expect.objectContaining({ appointmentId: 9 })),
+    )
+    expect(await screen.findByRole('status')).toHaveTextContent('La cita quedó completada.')
+    expect(onHandled).toHaveBeenCalled()
+  })
 })
