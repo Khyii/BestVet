@@ -1,5 +1,5 @@
 import type { AppointmentRequest } from '../api/types'
-import { nowLocalDateTime } from '../utils/dates'
+import { addMonthsLocal, nowLocalDateTime } from '../utils/dates'
 import { blankToNull, type Errors } from './patientForms'
 
 /** Formulario para agendar una cita (RF8, CU11). */
@@ -18,9 +18,19 @@ export const EMPTY_APPOINTMENT: AppointmentForm = {
 const REQUIRED = 'Este campo es obligatorio.'
 export const FUTURE_REQUIRED = 'La fecha y hora deben ser posteriores al momento actual.'
 
+/** RF8: las citas se agendan como máximo a 2 meses de la fecha actual (mismo límite que el backend). */
+export const MAX_MONTHS_AHEAD = 2
+export const TOO_FAR_AHEAD = `No se pueden agendar citas a más de ${MAX_MONTHS_AHEAD} meses.`
+
+/** Fecha y hora máximas para agendar o reprogramar, en el formato del campo datetime-local. */
+export function maxAppointmentDateTime(now: string = nowLocalDateTime()): string {
+  return addMonthsLocal(now, MAX_MONTHS_AHEAD)
+}
+
 /**
- * RF8: paciente, veterinario, fecha futura y motivo son obligatorios.
- * Ambas fechas usan el mismo formato, así que se comparan como texto.
+ * RF8: paciente, veterinario, fecha futura y motivo son obligatorios, y la fecha
+ * no puede superar el límite de 2 meses. Todas las fechas usan el mismo formato,
+ * así que se comparan como texto.
  */
 export function validateAppointment(f: AppointmentForm, now: string = nowLocalDateTime()): Errors {
   const e: Errors = {}
@@ -28,14 +38,16 @@ export function validateAppointment(f: AppointmentForm, now: string = nowLocalDa
   if (!f.veterinarianId) e.veterinarianId = REQUIRED
   if (!f.scheduledAt) e.scheduledAt = REQUIRED
   else if (f.scheduledAt <= now) e.scheduledAt = FUTURE_REQUIRED
+  else if (f.scheduledAt > maxAppointmentDateTime(now)) e.scheduledAt = TOO_FAR_AHEAD
   if (!f.reason.trim()) e.reason = REQUIRED
   return e
 }
 
-/** CU14: la nueva fecha también debe ser futura (reprogramar aplica de nuevo las reglas de RF8). */
+/** CU14: la nueva fecha debe cumplir el mismo rango que al agendar (reprogramar aplica de nuevo las reglas de RF8). */
 export function validateReschedule(newDate: string, now: string = nowLocalDateTime()): string | null {
   if (!newDate) return REQUIRED
   if (newDate <= now) return FUTURE_REQUIRED
+  if (newDate > maxAppointmentDateTime(now)) return TOO_FAR_AHEAD
   return null
 }
 
