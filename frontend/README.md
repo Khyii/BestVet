@@ -42,8 +42,8 @@ credenciales se guardan solo en memoria: al recargar la página se debe iniciar 
 Las opciones del menú dependen del rol devuelto por el backend (Secretaria o Veterinario).
 
 El panel de pacientes (búsqueda y filtros), el registro de propietarios y pacientes y el perfil del
-paciente (contacto del propietario, edición e historia clínica) ya consultan al backend. El
-calendario de citas aún usa datos de demostración.
+paciente (contacto del propietario, edición e historia clínica) y el calendario de citas consultan
+al backend. Ya no quedan vistas con datos de demostración.
 
 ## Estructura principal
 
@@ -54,6 +54,8 @@ calendario de citas aún usa datos de demostración.
 - `src/components/OwnerFields.tsx` y `PetFields.tsx`: campos de propietario y paciente, compartidos por el registro y la edición.
 - `src/forms/patientForms.ts`: estado, validaciones y conversiones de esos formularios.
 - `src/components/MedicalRecordSection.tsx` y `src/forms/clinicalForms.ts`: historia clínica (consultas y vacunas) y sus validaciones.
+- `src/views/CalendarView.tsx`, `src/components/AppointmentForm.tsx` y `src/forms/appointmentForms.ts`: calendario mensual, agendamiento y validaciones de citas.
+- `src/utils/appointments.ts` y `src/utils/calendar.ts`: acciones permitidas por estado (RF9) y cálculo del mes.
 - `src/utils/age.ts`: cálculo de la edad a partir de la fecha de nacimiento.
 - `src/components/Sidebar.tsx`: menú lateral filtrado por rol.
 - `src/views/`: pantallas de login, pacientes, formulario, perfil e historial, y calendario.

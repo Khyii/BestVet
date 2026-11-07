@@ -169,3 +169,52 @@ export interface VaccineApplicationRequest {
   applicationDate: string
   observations: string | null
 }
+
+// ---- Citas (paquete com.bestvet.bestvet.appointment) ----
+
+export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'DIDNT_SHOW'
+
+export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
+  SCHEDULED: 'Programada',
+  CONFIRMED: 'Confirmada',
+  CANCELLED: 'Cancelada',
+  COMPLETED: 'Completada',
+  DIDNT_SHOW: 'No asistió',
+}
+
+/** Respuesta de /api/appointments (record AppointmentResponse). */
+export interface Appointment {
+  id: number
+  petId: number
+  petName: string
+  ownerName: string
+  veterinarianId: number
+  veterinarianName: string
+  secretaryId: number
+  secretaryName: string
+  scheduledAt: string
+  reason: string
+  status: AppointmentStatus
+  observations: string | null
+}
+
+/** Cuerpo de POST /api/appointments (RF8). La secretaria se toma de la sesión. */
+export interface AppointmentRequest {
+  petId: number
+  veterinarianId: number
+  scheduledAt: string
+  reason: string
+  observations: string | null
+}
+
+/** Respuesta de /api/veterinarians (record VeterinarianResponse). */
+export interface Veterinarian {
+  id: number
+  documentType: DocumentType
+  documentNumber: string
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+  licenseNumber: string | null
+}

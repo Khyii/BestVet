@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getMedicalRecord, listVaccines, registerConsultation, registerVaccination } from '../api/medicalRecord'
-import type { Consultation, MedicalRecord, Vaccine } from '../api/types'
+import type { Appointment, Consultation, MedicalRecord, Vaccine } from '../api/types'
 import {
   CLINICAL_FIELD_LABELS,
   consultationFormToRequest,
@@ -70,10 +70,13 @@ function ConsultationCard({ c }: { c: Consultation }) {
 
 interface MedicalRecordSectionProps {
   petId: number
+  /** CU16: cita confirmada de la que proviene la consulta; al guardarla, la cita queda completada. */
+  origin?: Appointment | null
+  onOriginHandled?: () => void
 }
 
 /** Historia clínica del paciente (RF11, RF12; CU18, CU19, CU20). Solo para el veterinario. */
-export default function MedicalRecordSection({ petId }: MedicalRecordSectionProps) {
+export default function MedicalRecordSection({ petId, origin = null, onOriginHandled }: MedicalRecordSectionProps) {
   const [record, setRecord] = useState<MedicalRecord | null>(null)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -107,6 +110,22 @@ export default function MedicalRecordSection({ petId }: MedicalRecordSectionProp
   }, [petId, from, to])
 
   useEffect(() => { void load() }, [load])
+
+  // CU16: al llegar desde una cita, se abre el registro de consulta con el motivo de la cita.
+  useEffect(() => {
+    if (!origin) return
+    setConsultation({ ...emptyConsultation(), reason: origin.reason })
+    setConsultationErrors({})
+    setPendingMissing([])
+    setConsultationMessage('')
+    setNotice('')
+    setMode('consultation')
+  }, [origin])
+
+  const closeConsultation = () => {
+    setMode('none')
+    onOriginHandled?.()
+  }
 
   const openConsultation = () => {
     setConsultation(emptyConsultation())
@@ -146,9 +165,9 @@ export default function MedicalRecordSection({ petId }: MedicalRecordSectionProp
     setPendingMissing([])
     setConsultationMessage('')
     try {
-      await registerConsultation(petId, consultationFormToRequest(consultation))
-      setMode('none')
-      setNotice('Consulta guardada.')
+      await registerConsultation(petId, consultationFormToRequest(consultation, origin?.id ?? null))
+      closeConsultation()
+      setNotice(origin ? 'Consulta guardada. La cita quedó completada.' : 'Consulta guardada.')
       await load()
     } catch (err) {
       const { message, fields } = apiErrorMessage(err)
@@ -236,6 +255,11 @@ export default function MedicalRecordSection({ petId }: MedicalRecordSectionProp
           style={CARD}
           aria-label="Registro de consulta"
         >
+          {origin && (
+            <p className="text-sm rounded-lg px-3 py-2" style={{ background: 'var(--brand-light)', color: 'var(--primary)' }}>
+              Consulta de la cita del {formatDateTime(origin.scheduledAt)}. Al guardarla, la cita quedará completada.
+            </p>
+          )}
           <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
             Una consulta guardada no se puede editar ni eliminar; una corrección se registra como una consulta nueva.
           </p>
@@ -293,7 +317,7 @@ export default function MedicalRecordSection({ petId }: MedicalRecordSectionProp
             <button type="submit" disabled={saving} className={PRIMARY_BUTTON} style={{ background: 'var(--primary)' }}>
               {saving ? 'Guardando...' : 'Guardar consulta'}
             </button>
-            <button type="button" onClick={() => setMode('none')} className={SECONDARY_BUTTON} style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}>
+            <button type="button" onClick={closeConsultation} className={SECONDARY_BUTTON} style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}>
               Cancelar
             </button>
           </div>
