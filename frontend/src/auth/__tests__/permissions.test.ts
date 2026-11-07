@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canManagePatients, canOpen, homeView } from '../permissions'
+import { canManagePatients, canOpen, canUseMedicalRecord, homeView } from '../permissions'
 
 describe('permisos por rol', () => {
   it('la secretaria registra pacientes pero el veterinario no', () => {
@@ -23,5 +23,11 @@ describe('permisos por rol', () => {
     expect(canManagePatients('SECRETARY')).toBe(true)
     expect(canManagePatients('VETERINARIAN')).toBe(false)
     expect(canManagePatients('ADMIN')).toBe(false)
+  })
+
+  it('solo el veterinario usa la historia clínica (RF11, RF12)', () => {
+    expect(canUseMedicalRecord('VETERINARIAN')).toBe(true)
+    expect(canUseMedicalRecord('SECRETARY')).toBe(false)
+    expect(canUseMedicalRecord('ADMIN')).toBe(false)
   })
 })

@@ -7,7 +7,7 @@ import CalendarView from './views/CalendarView'
 import Sidebar from './components/Sidebar'
 import { logout } from './api/client'
 import { ROLE_LABELS, type Me } from './api/types'
-import { canManagePatients, canOpen, homeView } from './auth/permissions'
+import { canManagePatients, canOpen, canUseMedicalRecord, homeView } from './auth/permissions'
 
 export type View = 'login' | 'dashboard' | 'patient-form' | 'patient-profile' | 'calendar'
 
@@ -96,6 +96,7 @@ export default function App() {
             <PatientProfileView
               patientId={selectedPatientId}
               canEdit={canManagePatients(me.role)}
+              showMedicalRecord={canUseMedicalRecord(me.role)}
               onNavigate={navigate}
             />
           )}

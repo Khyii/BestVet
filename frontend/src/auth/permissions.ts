@@ -29,3 +29,8 @@ export function homeView(role: Role): View | null {
 export function canManagePatients(role: Role): boolean {
   return role === 'SECRETARY'
 }
+
+/** Historia clínica (RF11, RF12): solo el veterinario la consulta y la registra. */
+export function canUseMedicalRecord(role: Role): boolean {
+  return role === 'VETERINARIAN'
+}

@@ -3,6 +3,7 @@ import type { View } from '../App'
 import { getOwner, updateOwner } from '../api/owners'
 import { getPet, updatePet } from '../api/pets'
 import { DOCUMENT_TYPE_LABELS, PET_STATUS_LABELS, SEX_LABELS, type Owner, type Pet, type PetStatus } from '../api/types'
+import MedicalRecordSection from '../components/MedicalRecordSection'
 import OwnerFields from '../components/OwnerFields'
 import PetFields from '../components/PetFields'
 import {
@@ -61,10 +62,12 @@ interface PatientProfileViewProps {
   patientId: number
   /** Solo la secretaria edita propietarios y pacientes (RF5). */
   canEdit: boolean
+  /** Solo el veterinario ve y registra la historia clínica (RF11, RF12). */
+  showMedicalRecord: boolean
   onNavigate: (v: View) => void
 }
 
-export default function PatientProfileView({ patientId, canEdit, onNavigate }: PatientProfileViewProps) {
+export default function PatientProfileView({ patientId, canEdit, showMedicalRecord, onNavigate }: PatientProfileViewProps) {
   const [pet, setPet] = useState<Pet | null>(null)
   const [owner, setOwner] = useState<Owner | null>(null)
   const [loadError, setLoadError] = useState('')
@@ -319,6 +322,8 @@ export default function PatientProfileView({ patientId, canEdit, onNavigate }: P
               </form>
             )}
           </section>
+
+          {showMedicalRecord && <MedicalRecordSection petId={pet.id} />}
         </>
       )}
     </div>
