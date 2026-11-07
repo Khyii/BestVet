@@ -39,7 +39,7 @@ BESTVET_BACKEND_URL=http://localhost:8080 npm run dev
 
 El inicio de sesión valida las credenciales contra `GET /api/me` mediante HTTP Basic. Las
 credenciales se guardan solo en memoria: al recargar la página se debe iniciar sesión de nuevo.
-Las opciones del menú dependen del rol devuelto por el backend (Secretaria o Veterinario).
+Las opciones del menú dependen del rol devuelto por el backend: el administrador gestiona el personal, y la secretaria y el veterinario, los pacientes y las citas.
 
 El panel de pacientes (búsqueda y filtros), el registro de propietarios y pacientes y el perfil del
 paciente (contacto del propietario, edición e historia clínica) y el calendario de citas consultan
@@ -56,6 +56,7 @@ al backend. Ya no quedan vistas con datos de demostración.
 - `src/components/MedicalRecordSection.tsx` y `src/forms/clinicalForms.ts`: historia clínica (consultas y vacunas) y sus validaciones.
 - `src/views/CalendarView.tsx`, `src/components/AppointmentForm.tsx` y `src/forms/appointmentForms.ts`: calendario mensual, agendamiento y validaciones de citas.
 - `src/utils/appointments.ts` y `src/utils/calendar.ts`: acciones permitidas por estado (RF9) y cálculo del mes.
+- `src/views/StaffView.tsx` y `src/forms/staffForms.ts`: módulo de personal del administrador (RF2).
 - `src/utils/age.ts`: cálculo de la edad a partir de la fecha de nacimiento.
 - `src/components/Sidebar.tsx`: menú lateral filtrado por rol.
 - `src/views/`: pantallas de login, pacientes, formulario, perfil e historial, y calendario.

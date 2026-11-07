@@ -6,6 +6,7 @@ import type { Role } from '../api/types'
 const NAV_ITEMS: { id: View; label: string; icon: string; roles: Role[]; includes?: View[] }[] = [
   { id: 'dashboard', label: 'Pacientes', icon: '🐾', roles: ['SECRETARY', 'VETERINARIAN'], includes: ['patient-form', 'patient-profile'] },
   { id: 'calendar', label: 'Citas', icon: '📅', roles: ['SECRETARY', 'VETERINARIAN'] },
+  { id: 'staff', label: 'Personal', icon: '👥', roles: ['ADMIN'] },
 ]
 
 interface SidebarProps {

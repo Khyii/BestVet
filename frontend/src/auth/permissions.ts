@@ -8,12 +8,12 @@ import type { View } from '../App'
  *
  * - Secretaria: registra propietarios y pacientes (RF3, RF4) y gestiona citas (RF8–RF10).
  * - Veterinario: consulta pacientes y citas, y gestiona la historia clínica (RF11, RF12).
- * - Administrador: solo gestiona personal por API (RF2); no tiene vistas en esta versión.
+ * - Administrador: registra y consulta al personal (RF2, CU02, CU03).
  */
 const ALLOWED_VIEWS: Record<Role, View[]> = {
   SECRETARY: ['dashboard', 'patient-form', 'patient-profile', 'calendar'],
   VETERINARIAN: ['dashboard', 'patient-profile', 'calendar'],
-  ADMIN: [],
+  ADMIN: ['staff'],
 }
 
 export function canOpen(role: Role, view: View): boolean {

@@ -218,3 +218,35 @@ export interface Veterinarian {
   phone: string | null
   licenseNumber: string | null
 }
+
+// ---- Personal (paquete com.bestvet.bestvet.staff) ----
+
+export type StaffKind = 'VETERINARIAN' | 'SECRETARY'
+
+/** Respuesta de /api/secretaries (record SecretaryResponse). */
+export interface Secretary {
+  id: number
+  documentType: DocumentType
+  documentNumber: string
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+}
+
+/** Cuerpo de POST /api/secretaries (record SecretaryRequest). Crea también la cuenta (RF2). */
+export interface SecretaryRequest {
+  documentType: DocumentType
+  documentNumber: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  username: string
+  password: string
+}
+
+/** Cuerpo de POST /api/veterinarians. El backend nombra el campo "licenceNumber". */
+export interface VeterinarianRequest extends SecretaryRequest {
+  licenceNumber: string
+}

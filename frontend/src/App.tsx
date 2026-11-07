@@ -4,12 +4,13 @@ import DashboardView from './views/DashboardView'
 import PatientFormView from './views/PatientFormView'
 import PatientProfileView from './views/PatientProfileView'
 import CalendarView from './views/CalendarView'
+import StaffView from './views/StaffView'
 import Sidebar from './components/Sidebar'
 import { logout } from './api/client'
 import { ROLE_LABELS, type Appointment, type Me } from './api/types'
 import { canManagePatients, canOpen, canUseMedicalRecord, homeView } from './auth/permissions'
 
-export type View = 'login' | 'dashboard' | 'patient-form' | 'patient-profile' | 'calendar'
+export type View = 'login' | 'dashboard' | 'patient-form' | 'patient-profile' | 'calendar' | 'staff'
 
 function displayName(me: Me): string {
   const fullName = [me.firstName, me.lastName].filter(Boolean).join(' ')
@@ -62,8 +63,6 @@ export default function App() {
     setView('login')
   }
 
-  const hasViews = homeView(me.role) !== null
-
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--background)' }}>
       <Sidebar role={me.role} activeView={view} onNavigate={navigate} />
@@ -87,13 +86,6 @@ export default function App() {
           </button>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {!hasViews && (
-            <div className="p-8">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                La gestión de personal no está disponible en la interfaz en esta versión.
-              </p>
-            </div>
-          )}
           {view === 'dashboard' && canOpen(me.role, 'dashboard') && (
             <DashboardView
               canRegister={canManagePatients(me.role)}
@@ -114,6 +106,7 @@ export default function App() {
               onNavigate={navigate}
             />
           )}
+          {view === 'staff' && canOpen(me.role, 'staff') && <StaffView />}
           {view === 'calendar' && canOpen(me.role, 'calendar') && (
             <CalendarView role={me.role} staffId={me.staffId} onStartConsultation={startConsultation} />
           )}

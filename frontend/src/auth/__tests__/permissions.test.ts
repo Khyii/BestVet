@@ -14,9 +14,15 @@ describe('permisos por rol', () => {
     }
   })
 
-  it('el administrador no tiene vistas en esta versión', () => {
-    expect(homeView('ADMIN')).toBeNull()
+  it('el administrador solo accede al módulo de personal (RF2)', () => {
+    expect(homeView('ADMIN')).toBe('staff')
     expect(canOpen('ADMIN', 'dashboard')).toBe(false)
+    expect(canOpen('ADMIN', 'calendar')).toBe(false)
+  })
+
+  it('la secretaria y el veterinario no acceden al módulo de personal', () => {
+    expect(canOpen('SECRETARY', 'staff')).toBe(false)
+    expect(canOpen('VETERINARIAN', 'staff')).toBe(false)
   })
 
   it('solo la secretaria registra y edita propietarios y pacientes (RF3, RF4, RF5)', () => {
