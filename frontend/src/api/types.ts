@@ -81,6 +81,11 @@ export interface PetRequest {
   observations: string | null
 }
 
+/** Cuerpo de PUT /api/pets/{id} (record PetUpdateRequest): incluye el estado (RF5, CU07). */
+export interface PetUpdateRequest extends Omit<PetRequest, 'ownerId'> {
+  status: PetStatus
+}
+
 /** Longitud máxima de las observaciones; coincide con Pet.MAX_OBSERVATIONS del backend. */
 export const MAX_OBSERVATIONS = 500
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canOpen, homeView } from '../permissions'
+import { canManagePatients, canOpen, homeView } from '../permissions'
 
 describe('permisos por rol', () => {
   it('la secretaria registra pacientes pero el veterinario no', () => {
@@ -17,5 +17,11 @@ describe('permisos por rol', () => {
   it('el administrador no tiene vistas en esta versión', () => {
     expect(homeView('ADMIN')).toBeNull()
     expect(canOpen('ADMIN', 'dashboard')).toBe(false)
+  })
+
+  it('solo la secretaria registra y edita propietarios y pacientes (RF3, RF4, RF5)', () => {
+    expect(canManagePatients('SECRETARY')).toBe(true)
+    expect(canManagePatients('VETERINARIAN')).toBe(false)
+    expect(canManagePatients('ADMIN')).toBe(false)
   })
 })

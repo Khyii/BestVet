@@ -1,10 +1,10 @@
 import type { View } from '../App'
 import type { Role } from '../api/types'
 
-// Opciones del menú por rol. El historial clínico solo es accesible al veterinario (RF11, RF12).
-const NAV_ITEMS: { id: View; label: string; icon: string; roles: Role[] }[] = [
-  { id: 'dashboard', label: 'Pacientes', icon: '🐾', roles: ['SECRETARY', 'VETERINARIAN'] },
-  { id: 'patient-profile', label: 'Historial', icon: '📁', roles: ['VETERINARIAN'] },
+// Opciones del menú por rol. El perfil y la historia clínica se abren desde un paciente
+// del panel (CU08), por lo que no tienen una entrada propia en el menú.
+const NAV_ITEMS: { id: View; label: string; icon: string; roles: Role[]; includes?: View[] }[] = [
+  { id: 'dashboard', label: 'Pacientes', icon: '🐾', roles: ['SECRETARY', 'VETERINARIAN'], includes: ['patient-form', 'patient-profile'] },
   { id: 'calendar', label: 'Citas', icon: '📅', roles: ['SECRETARY', 'VETERINARIAN'] },
 ]
 
@@ -41,7 +41,7 @@ export default function Sidebar({ role, activeView, onNavigate }: SidebarProps) 
           Menú
         </p>
         {NAV_ITEMS.filter((item) => item.roles.includes(role)).map((item) => {
-          const active = activeView === item.id
+          const active = activeView === item.id || (item.includes?.includes(activeView) ?? false)
           return (
             <button
               type="button"

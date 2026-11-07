@@ -1,94 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { View } from '../App'
-import { ApiError } from '../api/client'
 import { createOwner, listOwners } from '../api/owners'
 import { createPet } from '../api/pets'
+import type { Owner } from '../api/types'
+import Field, { INPUT_CLASS } from '../components/Field'
+import OwnerFields from '../components/OwnerFields'
+import PetFields from '../components/PetFields'
 import {
-  DOCUMENT_TYPE_LABELS,
-  MAX_OBSERVATIONS,
-  SEX_LABELS,
-  type DocumentType,
-  type Owner,
-  type Sex,
-} from '../api/types'
-import Field, { INPUT_CLASS, fieldAria } from '../components/Field'
-import { todayIso } from '../utils/age'
+  EMPTY_OWNER,
+  EMPTY_PET,
+  apiErrorMessage,
+  ownerFormToRequest,
+  petFormToFields,
+  validateOwner,
+  validatePet,
+  type Errors,
+  type OwnerForm,
+  type PetForm,
+} from '../forms/patientForms'
 
-// Sugerencias para escribir más rápido; la especie y la raza son texto libre en el backend.
-const SPECIES_SUGGESTIONS = ['Perro', 'Gato', 'Ave', 'Conejo', 'Reptil']
-const BREED_SUGGESTIONS: Record<string, string[]> = {
-  Perro: ['Criollo', 'Golden Retriever', 'Labrador', 'Bulldog', 'Poodle', 'Pastor Alemán', 'Chihuahua', 'Beagle'],
-  Gato: ['Criollo', 'Siamés', 'Persa', 'Maine Coon', 'Bengalí', 'Ragdoll'],
-  Ave: ['Cotorra', 'Canario', 'Agaporni', 'Cacatúa'],
-  Conejo: ['Holland Lop', 'Mini Rex', 'Angora'],
-  Reptil: ['Iguana', 'Gecko', 'Tortuga'],
-}
-
-const REQUIRED = 'Este campo es obligatorio.'
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MAX_OWNER_MATCHES = 6
-
-type Errors = Record<string, string>
-
-interface OwnerForm {
-  documentType: DocumentType
-  documentNumber: string
-  firstName: string
-  lastName: string
-  phone: string
-  email: string
-  address: string
-}
-
-interface PetForm {
-  name: string
-  species: string
-  breed: string
-  sex: '' | Sex
-  birthDate: string
-  weight: string
-  observations: string
-}
-
-const EMPTY_OWNER: OwnerForm = {
-  documentType: 'CC', documentNumber: '', firstName: '', lastName: '', phone: '', email: '', address: '',
-}
-const EMPTY_PET: PetForm = { name: '', species: '', breed: '', sex: '', birthDate: '', weight: '', observations: '' }
 
 /** Normaliza texto para buscar sin distinguir mayúsculas ni tildes, como el backend. */
 function normalize(text: string): string {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-}
-
-export function validateOwner(f: OwnerForm): Errors {
-  const e: Errors = {}
-  if (!f.documentNumber.trim()) e.documentNumber = REQUIRED
-  if (!f.firstName.trim()) e.firstName = REQUIRED
-  if (!f.lastName.trim()) e.lastName = REQUIRED
-  if (!f.phone.trim()) e.phone = REQUIRED
-  if (f.email.trim() && !EMAIL_PATTERN.test(f.email.trim())) e.email = 'El correo electrónico no es válido.'
-  return e
-}
-
-export function validatePet(f: PetForm, today: string = todayIso()): Errors {
-  const e: Errors = {}
-  if (!f.name.trim()) e.name = REQUIRED
-  if (!f.species.trim()) e.species = REQUIRED
-  if (!f.sex) e.sex = REQUIRED
-  if (f.birthDate && f.birthDate > today) e.birthDate = 'La fecha de nacimiento no puede ser futura.'
-  if (f.weight.trim() && !(Number(f.weight) > 0)) e.weight = 'El peso debe ser mayor que cero.'
-  if (f.observations.length > MAX_OBSERVATIONS) {
-    e.observations = `Las observaciones no pueden superar los ${MAX_OBSERVATIONS} caracteres.`
-  }
-  return e
-}
-
-const blankToNull = (v: string) => (v.trim() === '' ? null : v.trim())
-
-/** Traduce un error de la API en un mensaje general y, si existen, errores por campo. */
-function apiErrorMessage(err: unknown): { message: string; fields: Errors } {
-  if (err instanceof ApiError) return { message: err.message, fields: err.fieldErrors ?? {} }
-  return { message: 'Ocurrió un error inesperado. Intente de nuevo.', fields: {} }
 }
 
 interface PatientFormViewProps {
@@ -128,14 +63,6 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
       .slice(0, MAX_OWNER_MATCHES)
   }, [owners, ownerQuery])
 
-  const setOwnerField = (k: keyof OwnerForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setOwnerForm((f) => ({ ...f, [k]: e.target.value }))
-
-  const setPetField = (k: keyof PetForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-      setPetForm((f) => ({ ...f, [k]: e.target.value }))
-
   const handleCreateOwner = async (e: React.FormEvent) => {
     e.preventDefault()
     const errors = validateOwner(ownerForm)
@@ -147,15 +74,7 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
     setSavingOwner(true)
     setOwnerMessage('')
     try {
-      const owner = await createOwner({
-        documentType: ownerForm.documentType,
-        documentNumber: ownerForm.documentNumber.trim(),
-        firstName: ownerForm.firstName.trim(),
-        lastName: ownerForm.lastName.trim(),
-        phone: ownerForm.phone.trim(),
-        email: blankToNull(ownerForm.email),
-        address: blankToNull(ownerForm.address),
-      })
+      const owner = await createOwner(ownerFormToRequest(ownerForm))
       // CU04, alterno: al venir desde CU05 se vuelve al registro del paciente con el propietario elegido.
       setOwners((list) => [...list, owner])
       setSelectedOwner(owner)
@@ -186,16 +105,7 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
     setSavingPet(true)
     setPetMessage('')
     try {
-      await createPet({
-        ownerId: selectedOwner.id,
-        name: petForm.name.trim(),
-        species: petForm.species.trim(),
-        breed: blankToNull(petForm.breed),
-        sex: petForm.sex as Sex,
-        birthDate: petForm.birthDate || null,
-        weight: petForm.weight.trim() ? Number(petForm.weight) : null,
-        observations: blankToNull(petForm.observations),
-      })
+      await createPet({ ownerId: selectedOwner.id, ...petFormToFields(petForm) })
       setSaved(true)
       setTimeout(() => onNavigate('dashboard'), 1200)
     } catch (err) {
@@ -318,56 +228,12 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
 
         {creatingOwner && (
           <form onSubmit={handleCreateOwner} noValidate className="space-y-4" aria-label="Registro de propietario">
-            <div className="grid grid-cols-2 gap-4">
-              <Field id="owner-documentType" label="Tipo de documento" required>
-                <select
-                  {...fieldAria('owner-documentType', ownerErrors.documentType)}
-                  value={ownerForm.documentType}
-                  onChange={setOwnerField('documentType')}
-                  className={INPUT_CLASS + ' cursor-pointer'}
-                >
-                  {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((t) => (
-                    <option key={t} value={t}>{DOCUMENT_TYPE_LABELS[t]}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field id="owner-documentNumber" label="Número de documento" required error={ownerErrors.documentNumber}>
-                <input
-                  {...fieldAria('owner-documentNumber', ownerErrors.documentNumber)}
-                  type="text" value={ownerForm.documentNumber} onChange={setOwnerField('documentNumber')} className={INPUT_CLASS}
-                />
-              </Field>
-              <Field id="owner-firstName" label="Nombres" required error={ownerErrors.firstName}>
-                <input
-                  {...fieldAria('owner-firstName', ownerErrors.firstName)}
-                  type="text" autoComplete="given-name" value={ownerForm.firstName} onChange={setOwnerField('firstName')} className={INPUT_CLASS}
-                />
-              </Field>
-              <Field id="owner-lastName" label="Apellidos" required error={ownerErrors.lastName}>
-                <input
-                  {...fieldAria('owner-lastName', ownerErrors.lastName)}
-                  type="text" autoComplete="family-name" value={ownerForm.lastName} onChange={setOwnerField('lastName')} className={INPUT_CLASS}
-                />
-              </Field>
-              <Field id="owner-phone" label="Celular" required error={ownerErrors.phone}>
-                <input
-                  {...fieldAria('owner-phone', ownerErrors.phone)}
-                  type="tel" autoComplete="tel" value={ownerForm.phone} onChange={setOwnerField('phone')} className={INPUT_CLASS}
-                />
-              </Field>
-              <Field id="owner-email" label="Correo electrónico" error={ownerErrors.email}>
-                <input
-                  {...fieldAria('owner-email', ownerErrors.email)}
-                  type="email" autoComplete="email" value={ownerForm.email} onChange={setOwnerField('email')} className={INPUT_CLASS}
-                />
-              </Field>
-            </div>
-            <Field id="owner-address" label="Dirección" error={ownerErrors.address}>
-              <input
-                {...fieldAria('owner-address', ownerErrors.address)}
-                type="text" autoComplete="street-address" value={ownerForm.address} onChange={setOwnerField('address')} className={INPUT_CLASS}
-              />
-            </Field>
+            <OwnerFields
+              idPrefix="owner"
+              form={ownerForm}
+              errors={ownerErrors}
+              onChange={(k, v) => setOwnerForm((f) => ({ ...f, [k]: v }))}
+            />
 
             {ownerMessage && <p role="alert" className="text-sm" style={{ color: '#b91c1c' }}>{ownerMessage}</p>}
 
@@ -394,62 +260,12 @@ export default function PatientFormView({ onNavigate }: PatientFormViewProps) {
           <h2 id="titulo-paciente" className={sectionTitle} style={{ color: 'var(--muted-foreground)' }}>
             Datos del paciente
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <Field id="pet-name" label="Nombre" required error={petErrors.name}>
-              <input {...fieldAria('pet-name', petErrors.name)} type="text" value={petForm.name} onChange={setPetField('name')} className={INPUT_CLASS} />
-            </Field>
-            <Field id="pet-species" label="Especie" required error={petErrors.species}>
-              <input
-                {...fieldAria('pet-species', petErrors.species)}
-                type="text" list="species-suggestions" value={petForm.species} onChange={setPetField('species')} className={INPUT_CLASS}
-              />
-              <datalist id="species-suggestions">
-                {SPECIES_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
-              </datalist>
-            </Field>
-            <Field id="pet-breed" label="Raza" error={petErrors.breed}>
-              <input
-                {...fieldAria('pet-breed', petErrors.breed)}
-                type="text" list="breed-suggestions" value={petForm.breed} onChange={setPetField('breed')} className={INPUT_CLASS}
-              />
-              <datalist id="breed-suggestions">
-                {(BREED_SUGGESTIONS[petForm.species.trim()] ?? []).map((b) => <option key={b} value={b} />)}
-              </datalist>
-            </Field>
-            <Field id="pet-sex" label="Sexo" required error={petErrors.sex}>
-              <select {...fieldAria('pet-sex', petErrors.sex)} value={petForm.sex} onChange={setPetField('sex')} className={INPUT_CLASS + ' cursor-pointer'}>
-                <option value="">Seleccionar...</option>
-                {(Object.keys(SEX_LABELS) as Sex[]).map((s) => <option key={s} value={s}>{SEX_LABELS[s]}</option>)}
-              </select>
-            </Field>
-            <Field id="pet-birthDate" label="Fecha de nacimiento" error={petErrors.birthDate}>
-              <input
-                {...fieldAria('pet-birthDate', petErrors.birthDate)}
-                type="date" max={todayIso()} value={petForm.birthDate} onChange={setPetField('birthDate')} className={INPUT_CLASS}
-              />
-            </Field>
-            <Field id="pet-weight" label="Peso (kg)" error={petErrors.weight}>
-              <input
-                {...fieldAria('pet-weight', petErrors.weight)}
-                type="number" min="0.01" step="0.01" value={petForm.weight} onChange={setPetField('weight')} className={INPUT_CLASS}
-              />
-            </Field>
-          </div>
-          <Field id="pet-observations" label="Observaciones" error={petErrors.observations}>
-            <textarea
-              {...fieldAria('pet-observations', petErrors.observations)}
-              value={petForm.observations}
-              onChange={setPetField('observations')}
-              maxLength={MAX_OBSERVATIONS}
-              rows={3}
-              placeholder="Alergias, condiciones crónicas u otras notas relevantes"
-              className={INPUT_CLASS + ' resize-none'}
-              style={{ lineHeight: '1.5' }}
-            />
-            <p className="text-xs mt-1 text-right" style={{ color: 'var(--muted-foreground)' }}>
-              {petForm.observations.length}/{MAX_OBSERVATIONS}
-            </p>
-          </Field>
+          <PetFields
+            idPrefix="pet"
+            form={petForm}
+            errors={petErrors}
+            onChange={(k, v) => setPetForm((f) => ({ ...f, [k]: v }))}
+          />
         </section>
 
         {petMessage && <p role="alert" className="text-sm" style={{ color: '#b91c1c' }}>{petMessage}</p>}

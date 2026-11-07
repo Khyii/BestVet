@@ -1,345 +1,326 @@
+import { useEffect, useState } from 'react'
 import type { View } from '../App'
+import { getOwner, updateOwner } from '../api/owners'
+import { getPet, updatePet } from '../api/pets'
+import { DOCUMENT_TYPE_LABELS, PET_STATUS_LABELS, SEX_LABELS, type Owner, type Pet, type PetStatus } from '../api/types'
+import OwnerFields from '../components/OwnerFields'
+import PetFields from '../components/PetFields'
+import {
+  apiErrorMessage,
+  ownerFormToRequest,
+  ownerToForm,
+  petFormToFields,
+  petToForm,
+  validateOwner,
+  validatePet,
+  type Errors,
+  type OwnerForm,
+  type PetForm,
+} from '../forms/patientForms'
+import { formatAge } from '../utils/age'
 
-// Datos de demostración: esta vista se conecta al backend en el siguiente paso (RF7, RF11, RF12).
-const PATIENTS = [
-  { id: 1, nombre: 'Canela', animal: 'Perro', raza: 'Golden Retriever', dueño: 'Ana Torres', correo: 'ana.torres@gmail.com', celular: '+52 55 8847 3021', fecha: '2024-03-12', estado: 'Activo', edad: '4 años', peso: '28 kg' },
-  { id: 2, nombre: 'Mochi', animal: 'Gato', raza: 'Siamés', dueño: 'Carlos Ruiz', correo: 'carlos.ruiz@gmail.com', celular: '+52 55 7124 8360', fecha: '2024-03-10', estado: 'Activo', edad: '2 años', peso: '4.8 kg' },
-  { id: 3, nombre: 'Rocky', animal: 'Perro', raza: 'Bulldog', dueño: 'Fernanda López', correo: 'fernanda.lopez@gmail.com', celular: '+52 55 6309 1427', fecha: '2024-03-08', estado: 'Seguimiento', edad: '6 años', peso: '23 kg' },
-  { id: 4, nombre: 'Luna', animal: 'Gato', raza: 'Persa', dueño: 'Miguel Salas', correo: 'miguel.salas@gmail.com', celular: '+52 55 9081 2764', fecha: '2024-03-05', estado: 'Activo', edad: '3 años', peso: '4.2 kg' },
-  { id: 5, nombre: 'Thor', animal: 'Perro', raza: 'Labrador', dueño: 'Valeria Méndez', correo: 'valeria.mendez@gmail.com', celular: '+52 55 3548 9210', fecha: '2024-02-28', estado: 'Inactivo', edad: '8 años', peso: '31 kg' },
-  { id: 6, nombre: 'Coco', animal: 'Ave', raza: 'Cotorra', dueño: 'Pablo Herrera', correo: 'pablo.herrera@gmail.com', celular: '+52 55 4820 6351', fecha: '2024-02-20', estado: 'Activo', edad: '2 años', peso: '320 g' },
-  { id: 7, nombre: 'Bella', animal: 'Perro', raza: 'Poodle', dueño: 'Diana Castillo', correo: 'diana.castillo@gmail.com', celular: '+52 55 7613 0842', fecha: '2024-02-14', estado: 'Seguimiento', edad: '5 años', peso: '7.4 kg' },
-  { id: 8, nombre: 'Nala', animal: 'Gato', raza: 'Maine Coon', dueño: 'Roberto Vega', correo: 'roberto.vega@gmail.com', celular: '+52 55 2197 5483', fecha: '2024-02-10', estado: 'Activo', edad: '4 años', peso: '6.1 kg' },
-]
+const STATUS_COLORS: Record<PetStatus, { background: string; color: string }> = {
+  ACTIVE: { background: '#ecfdf5', color: '#047857' },
+  INACTIVE: { background: '#f3f4f6', color: '#4b5563' },
+  DECEASED: { background: '#fef2f2', color: '#b91c1c' },
+}
 
-const HISTORIAL = [
-  {
-    id: 1,
-    fecha: '12 Mar 2024',
-    motivo: 'Revisión general',
-    diagnostico: 'Estado óptimo de salud. Peso adecuado para su edad y tamaño.',
-    medicacion: 'Vitamina E 200mg · 1 vez al día por 30 días',
-    veterinario: 'Dr. Ramírez',
-    tipo: 'Revisión',
-  },
-  {
-    id: 2,
-    fecha: '18 Ene 2024',
-    motivo: 'Vómito y letargo',
-    diagnostico: 'Gastroenteritis leve por ingesta de alimento inadecuado.',
-    medicacion: 'Metronidazol 250mg · 2 veces/día · 5 días. Dieta blanda.',
-    veterinario: 'Dra. Fuentes',
-    tipo: 'Urgencia',
-  },
-  {
-    id: 3,
-    fecha: '05 Nov 2023',
-    motivo: 'Vacunación anual',
-    diagnostico: 'Cuadro vacunal completo actualizado. Sin reacciones adversas.',
-    medicacion: 'Vacuna polivalente + Antirrábica',
-    veterinario: 'Dr. Ramírez',
-    tipo: 'Vacuna',
-  },
-  {
-    id: 4,
-    fecha: '22 Jul 2023',
-    motivo: 'Cojera en pata delantera',
-    diagnostico: 'Esguince leve de ligamento carpiano derecho. Reposo recomendado.',
-    medicacion: 'Meloxicam 1mg/kg · 1 vez/día · 7 días',
-    veterinario: 'Dr. Ramírez',
-    tipo: 'Traumatología',
-  },
-  {
-    id: 5,
-    fecha: '10 Mar 2023',
-    motivo: 'Primera consulta',
-    diagnostico: 'Cachorra sana. Se inicia seguimiento clínico.',
-    medicacion: 'Desparasitación: Praziquantel + Pirantel. Repetir en 3 semanas.',
-    veterinario: 'Dr. Ramírez',
-    tipo: 'Primera visita',
-  },
-]
+const CARD = { background: 'var(--card)', border: '1px solid var(--border)' }
+const PRIMARY_BUTTON = 'px-5 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all duration-150 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed'
+const SECONDARY_BUTTON = 'px-5 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-150'
+const EDIT_BUTTON = 'text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer'
 
-const CITAS_AGENDADAS = [
-  {
-    id: 1,
-    fecha: '18 Mar 2024',
-    hora: '10:30',
-    motivo: 'Control de seguimiento',
-    estado: 'Confirmada',
-  },
-  {
-    id: 2,
-    fecha: '12 Abr 2024',
-    hora: '16:00',
-    motivo: 'Vacunación anual',
-    estado: 'Programada',
-  },
-]
+function Datum({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{label}</dt>
+      <dd className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{value}</dd>
+    </div>
+  )
+}
 
-const TIPO_COLORS: Record<string, { bg: string; color: string }> = {
-  'Revisión': { bg: '#eff6ff', color: '#2563eb' },
-  'Urgencia': { bg: '#fff1f2', color: '#be123c' },
-  'Vacuna': { bg: '#ecfdf5', color: '#059669' },
-  'Traumatología': { bg: '#fffbeb', color: '#d97706' },
-  'Primera visita': { bg: '#f5f3ff', color: '#7c3aed' },
+function SaveCancel({ saving, onCancel }: { saving: boolean; onCancel: () => void }) {
+  return (
+    <div className="flex items-center gap-3">
+      <button type="submit" disabled={saving} className={PRIMARY_BUTTON} style={{ background: 'var(--primary)' }}>
+        {saving ? 'Guardando...' : 'Guardar cambios'}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className={SECONDARY_BUTTON}
+        style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}
+      >
+        Cancelar
+      </button>
+    </div>
+  )
 }
 
 interface PatientProfileViewProps {
   patientId: number
+  /** Solo la secretaria edita propietarios y pacientes (RF5). */
+  canEdit: boolean
   onNavigate: (v: View) => void
 }
 
-export default function PatientProfileView({ patientId, onNavigate }: PatientProfileViewProps) {
-  const patient = PATIENTS.find((item) => item.id === patientId) ?? PATIENTS[0]
-  const historial = patient.id === 1
-    ? HISTORIAL
-    : [{
-        id: 1,
-        fecha: new Date(`${patient.fecha}T12:00:00`).toLocaleDateString('es-MX', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        }),
-        motivo: 'Revisión general',
-        diagnostico: 'Consulta de seguimiento registrada. Evolución clínica estable.',
-        medicacion: 'Sin medicación indicada.',
-        veterinario: 'Equipo Best Vet',
-        tipo: 'Revisión',
-      }]
+export default function PatientProfileView({ patientId, canEdit, onNavigate }: PatientProfileViewProps) {
+  const [pet, setPet] = useState<Pet | null>(null)
+  const [owner, setOwner] = useState<Owner | null>(null)
+  const [loadError, setLoadError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  // Edición del paciente (CU07)
+  const [editingPet, setEditingPet] = useState(false)
+  const [petForm, setPetForm] = useState<PetForm | null>(null)
+  const [petStatus, setPetStatus] = useState<PetStatus>('ACTIVE')
+  const [petErrors, setPetErrors] = useState<Errors>({})
+  const [petMessage, setPetMessage] = useState('')
+  const [savingPet, setSavingPet] = useState(false)
+
+  // Edición del propietario (CU06)
+  const [editingOwner, setEditingOwner] = useState(false)
+  const [ownerForm, setOwnerForm] = useState<OwnerForm | null>(null)
+  const [ownerErrors, setOwnerErrors] = useState<Errors>({})
+  const [ownerMessage, setOwnerMessage] = useState('')
+  const [savingOwner, setSavingOwner] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    setPet(null)
+    setOwner(null)
+    setLoadError('')
+    getPet(patientId)
+      .then(async (p) => {
+        const o = await getOwner(p.ownerId)
+        if (!active) return
+        setPet(p)
+        setOwner(o)
+      })
+      .catch((err) => { if (active) setLoadError(apiErrorMessage(err).message) })
+    return () => { active = false }
+  }, [patientId])
+
+  const startPetEdit = () => {
+    if (!pet) return
+    setPetForm(petToForm(pet))
+    setPetStatus(pet.status)
+    setPetErrors({})
+    setPetMessage('')
+    setNotice('')
+    setEditingPet(true)
+  }
+
+  const startOwnerEdit = () => {
+    if (!owner) return
+    setOwnerForm(ownerToForm(owner))
+    setOwnerErrors({})
+    setOwnerMessage('')
+    setNotice('')
+    setEditingOwner(true)
+  }
+
+  const savePet = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pet || !petForm) return
+    const errors = validatePet(petForm)
+    setPetErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setPetMessage('Revise los campos marcados.')
+      return
+    }
+    setSavingPet(true)
+    setPetMessage('')
+    try {
+      const updated = await updatePet(pet.id, { ...petFormToFields(petForm), status: petStatus })
+      setPet(updated)
+      setEditingPet(false)
+      setNotice('Cambios guardados.')
+    } catch (err) {
+      // Incluye la regla de RF5: si no hay cambios, el backend no guarda e informa.
+      const { message, fields } = apiErrorMessage(err)
+      setPetMessage(message)
+      setPetErrors(fields)
+    } finally {
+      setSavingPet(false)
+    }
+  }
+
+  const saveOwner = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!owner || !ownerForm || !pet) return
+    const errors = validateOwner(ownerForm)
+    setOwnerErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setOwnerMessage('Revise los campos marcados.')
+      return
+    }
+    setSavingOwner(true)
+    setOwnerMessage('')
+    try {
+      const updated = await updateOwner(owner.id, ownerFormToRequest(ownerForm))
+      setOwner(updated)
+      // El contacto que muestra el perfil (RF7) se actualiza de inmediato (postcondición de RF5).
+      setPet({
+        ...pet,
+        ownerName: `${updated.firstName} ${updated.lastName}`,
+        ownerPhone: updated.phone,
+        ownerEmail: updated.email,
+      })
+      setEditingOwner(false)
+      setNotice('Cambios guardados.')
+    } catch (err) {
+      const { message, fields } = apiErrorMessage(err)
+      setOwnerMessage(message)
+      setOwnerErrors(fields)
+    } finally {
+      setSavingOwner(false)
+    }
+  }
 
   return (
-    <div className="p-8 max-w-3xl">
-      {/* Back */}
-      <div className="flex items-center gap-3 mb-8">
+    <div className="p-8 max-w-3xl space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={() => onNavigate('dashboard')}
+          aria-label="Volver al panel de pacientes"
           className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:opacity-70 text-sm"
           style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
         >
           ←
         </button>
-        <div>
-          <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-          >
-            Perfil del paciente
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            Historial clínico completo
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}>
+          Perfil del paciente
+        </h1>
       </div>
 
-      {/* Patient card */}
-      <div
-        className="rounded-xl p-6 mb-6"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-      >
-        <div className="flex items-start gap-5">
-          {/* Avatar */}
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shrink-0"
-            style={{ background: 'var(--primary)' }}
-          >
-            🐕
-          </div>
+      {loadError && (
+        <p role="alert" className="text-sm px-4 py-3 rounded-xl" style={{ background: '#fef2f2', color: '#b91c1c' }}>
+          {loadError}
+        </p>
+      )}
+      {!pet && !loadError && <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Cargando...</p>}
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2
-                  className="text-xl font-bold"
-                  style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-                >
-                  {patient.nombre}
-                </h2>
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                  {patient.animal} · {patient.raza}
-                </p>
-              </div>
-              <button
-                onClick={() => onNavigate('patient-form')}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer"
-                style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}
-              >
-                Editar
-              </button>
-            </div>
+      {notice && (
+        <p role="status" className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#ecfdf5', color: '#047857' }}>
+          {notice}
+        </p>
+      )}
 
-            <div className="flex items-center gap-6 mt-4">
-              <div>
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Edad</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{patient.edad}</p>
-              </div>
-              <div>
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Peso</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{patient.peso}</p>
-              </div>
-              <div>
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Vacunas</p>
-                <p className="text-sm font-semibold" style={{ color: '#059669' }}>Al día</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="my-5" style={{ borderTop: '1px solid var(--border)' }} />
-
-        {/* Owner info */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--muted-foreground)' }}>
-            Información del dueño
-          </p>
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">👤</span>
-              <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{patient.dueño}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">✉️</span>
-              <span className="text-sm" style={{ color: 'var(--primary)' }}>{patient.correo}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">📱</span>
-              <span className="text-sm" style={{ color: 'var(--foreground)' }}>{patient.celular}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Upcoming appointments */}
-      <div
-        className="rounded-xl p-6 mb-8"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3
-              className="text-base font-semibold"
-              style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-            >
-              Citas agendadas
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-              Próximas atenciones de {patient.nombre}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigate('calendar')}
-            className="text-xs px-3 py-2 rounded-lg font-semibold cursor-pointer"
-            style={{ background: 'var(--brand-light)', color: 'var(--primary)' }}
-          >
-            Ver calendario
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {CITAS_AGENDADAS.map((cita) => (
-            <div
-              key={cita.id}
-              className="rounded-lg p-4"
-              style={{ background: 'var(--muted)', borderLeft: '3px solid var(--primary)' }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-                    {cita.motivo}
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
-                    {cita.fecha} · {cita.hora}
-                  </p>
-                </div>
-                <span
-                  className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold"
-                  style={{ background: 'var(--brand-light)', color: 'var(--primary)' }}
-                >
-                  {cita.estado}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3
-            className="text-base font-semibold"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}
-          >
-            Historial clínico
-          </h3>
-          <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-            {historial.length} {historial.length === 1 ? 'consulta registrada' : 'consultas registradas'}
-          </span>
-        </div>
-
-        <div className="relative">
-          {/* Timeline line */}
-          <div
-            className="absolute left-5 top-0 bottom-0 w-px"
-            style={{ background: 'var(--border)' }}
-          />
-
-          <div className="space-y-4">
-            {historial.map((h) => (
-              <div key={h.id} className="flex gap-5">
-                {/* Timeline dot */}
+      {pet && owner && (
+        <>
+          {/* Datos del paciente */}
+          <section className="rounded-xl p-6" style={CARD} aria-labelledby="titulo-paciente">
+            {!editingPet && (
+              <div className="flex items-start gap-5">
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10"
-                  style={{ background: 'var(--primary)', color: '#fff' }}
+                  aria-hidden="true"
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shrink-0"
+                  style={{ background: 'var(--primary)' }}
                 >
-                  {h.id}
+                  {pet.name.charAt(0).toUpperCase()}
                 </div>
-
-                {/* Card */}
-                <div
-                  className="flex-1 rounded-xl p-5 mb-1"
-                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                          style={TIPO_COLORS[h.tipo]}
-                        >
-                          {h.tipo}
+                      <div className="flex items-center gap-2">
+                        <h2 id="titulo-paciente" className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--foreground)' }}>
+                          {pet.name}
+                        </h2>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={STATUS_COLORS[pet.status]}>
+                          {PET_STATUS_LABELS[pet.status]}
                         </span>
-                        <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{h.fecha}</span>
                       </div>
-                      <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-                        {h.motivo}
+                      <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                        {pet.species}{pet.breed ? ` · ${pet.breed}` : ''}
                       </p>
                     </div>
-                    <span className="text-xs shrink-0" style={{ color: 'var(--muted-foreground)' }}>
-                      {h.veterinario}
-                    </span>
+                    {canEdit && (
+                      <button type="button" onClick={startPetEdit} className={EDIT_BUTTON} style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}>
+                        Editar paciente
+                      </button>
+                    )}
                   </div>
-
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--muted-foreground)' }}>Diagnóstico</p>
-                      <p className="text-sm" style={{ color: 'var(--foreground)' }}>{h.diagnostico}</p>
-                    </div>
-                    <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-                      <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--muted-foreground)' }}>Medicación</p>
-                      <p className="text-sm font-mono" style={{ color: 'var(--foreground)', fontSize: '0.8rem' }}>
-                        {h.medicacion}
-                      </p>
-                    </div>
+                  <dl className="grid grid-cols-4 gap-4">
+                    <Datum label="Sexo" value={SEX_LABELS[pet.sex]} />
+                    <Datum label="Edad" value={formatAge(pet.birthDate)} />
+                    <Datum label="Fecha de nacimiento" value={pet.birthDate ?? '—'} />
+                    <Datum label="Peso" value={pet.weight === null ? '—' : `${pet.weight} kg`} />
+                  </dl>
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Observaciones</p>
+                    <p className="text-sm whitespace-pre-line" style={{ color: 'var(--foreground)' }}>
+                      {pet.observations ?? 'Sin observaciones.'}
+                    </p>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            )}
+
+            {editingPet && petForm && (
+              <form onSubmit={savePet} noValidate className="space-y-5" aria-label="Edición del paciente">
+                <h2 id="titulo-paciente" className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>
+                  Editar paciente
+                </h2>
+                <PetFields
+                  idPrefix="edit-pet"
+                  form={petForm}
+                  errors={petErrors}
+                  onChange={(k, v) => setPetForm((f) => (f ? { ...f, [k]: v } : f))}
+                  status={petStatus}
+                  onStatusChange={setPetStatus}
+                />
+                {petMessage && <p role="alert" className="text-sm" style={{ color: '#b91c1c' }}>{petMessage}</p>}
+                <SaveCancel saving={savingPet} onCancel={() => setEditingPet(false)} />
+              </form>
+            )}
+          </section>
+
+          {/* Contacto del propietario (RF7, CU10) */}
+          <section className="rounded-xl p-6" style={CARD} aria-labelledby="titulo-propietario">
+            {!editingOwner && (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 id="titulo-propietario" className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>
+                    Propietario y contacto
+                  </h2>
+                  {canEdit && (
+                    <button type="button" onClick={startOwnerEdit} className={EDIT_BUTTON} style={{ background: 'var(--muted)', color: 'var(--secondary-foreground)' }}>
+                      Editar propietario
+                    </button>
+                  )}
+                </div>
+                <dl className="grid grid-cols-2 gap-4">
+                  <Datum label="Nombre" value={pet.ownerName} />
+                  <Datum label="Documento" value={`${DOCUMENT_TYPE_LABELS[owner.documentType]} ${owner.documentNumber}`} />
+                  <Datum label="Celular" value={pet.ownerPhone} />
+                  {/* RF7: si el propietario no tiene correo, se muestra solo el celular. */}
+                  {pet.ownerEmail && <Datum label="Correo electrónico" value={pet.ownerEmail} />}
+                  {owner.address && <Datum label="Dirección" value={owner.address} />}
+                </dl>
+              </div>
+            )}
+
+            {editingOwner && ownerForm && (
+              <form onSubmit={saveOwner} noValidate className="space-y-5" aria-label="Edición del propietario">
+                <h2 id="titulo-propietario" className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>
+                  Editar propietario
+                </h2>
+                <OwnerFields
+                  idPrefix="edit-owner"
+                  form={ownerForm}
+                  errors={ownerErrors}
+                  onChange={(k, v) => setOwnerForm((f) => (f ? { ...f, [k]: v } : f))}
+                />
+                {ownerMessage && <p role="alert" className="text-sm" style={{ color: '#b91c1c' }}>{ownerMessage}</p>}
+                <SaveCancel saving={savingOwner} onCancel={() => setEditingOwner(false)} />
+              </form>
+            )}
+          </section>
+        </>
+      )}
     </div>
   )
 }

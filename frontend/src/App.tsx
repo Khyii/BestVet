@@ -7,7 +7,7 @@ import CalendarView from './views/CalendarView'
 import Sidebar from './components/Sidebar'
 import { logout } from './api/client'
 import { ROLE_LABELS, type Me } from './api/types'
-import { canOpen, homeView } from './auth/permissions'
+import { canManagePatients, canOpen, homeView } from './auth/permissions'
 
 export type View = 'login' | 'dashboard' | 'patient-form' | 'patient-profile' | 'calendar'
 
@@ -19,7 +19,8 @@ function displayName(me: Me): string {
 export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [view, setView] = useState<View>('login')
-  const [selectedPatientId, setSelectedPatientId] = useState(1)
+  // El perfil se abre siempre desde un paciente concreto del panel (CU08, paso d).
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null)
 
   if (!me) {
     return (
@@ -45,6 +46,7 @@ export default function App() {
   const handleLogout = () => {
     logout()
     setMe(null)
+    setSelectedPatientId(null)
     setView('login')
   }
 
@@ -82,7 +84,7 @@ export default function App() {
           )}
           {view === 'dashboard' && canOpen(me.role, 'dashboard') && (
             <DashboardView
-              canRegister={canOpen(me.role, 'patient-form')}
+              canRegister={canManagePatients(me.role)}
               onNavigate={navigate}
               onSelectPatient={openPatientProfile}
             />
@@ -90,8 +92,12 @@ export default function App() {
           {view === 'patient-form' && canOpen(me.role, 'patient-form') && (
             <PatientFormView onNavigate={navigate} />
           )}
-          {view === 'patient-profile' && canOpen(me.role, 'patient-profile') && (
-            <PatientProfileView patientId={selectedPatientId} onNavigate={navigate} />
+          {view === 'patient-profile' && canOpen(me.role, 'patient-profile') && selectedPatientId !== null && (
+            <PatientProfileView
+              patientId={selectedPatientId}
+              canEdit={canManagePatients(me.role)}
+              onNavigate={navigate}
+            />
           )}
           {view === 'calendar' && canOpen(me.role, 'calendar') && <CalendarView />}
         </main>

@@ -41,9 +41,9 @@ El inicio de sesión valida las credenciales contra `GET /api/me` mediante HTTP 
 credenciales se guardan solo en memoria: al recargar la página se debe iniciar sesión de nuevo.
 Las opciones del menú dependen del rol devuelto por el backend (Secretaria o Veterinario).
 
-El panel de pacientes (búsqueda y filtros) y el registro de propietarios y pacientes ya consultan
-al backend. El perfil del paciente, la historia clínica y el calendario de citas aún usan datos de
-demostración y se conectan de forma progresiva.
+El panel de pacientes (búsqueda y filtros), el registro de propietarios y pacientes y el perfil del
+paciente (contacto del propietario y edición) ya consultan al backend. La historia clínica y el
+calendario de citas aún se conectan de forma progresiva.
 
 ## Estructura principal
 
@@ -51,6 +51,8 @@ demostración y se conectan de forma progresiva.
 - `src/api/`: cliente HTTP (HTTP Basic, manejo de errores) y tipos compartidos con el backend.
 - `src/auth/permissions.ts`: vistas permitidas por rol.
 - `src/components/Field.tsx`: campo de formulario con etiqueta y mensaje de error accesibles.
+- `src/components/OwnerFields.tsx` y `PetFields.tsx`: campos de propietario y paciente, compartidos por el registro y la edición.
+- `src/forms/patientForms.ts`: estado, validaciones y conversiones de esos formularios.
 - `src/utils/age.ts`: cálculo de la edad a partir de la fecha de nacimiento.
 - `src/components/Sidebar.tsx`: menú lateral filtrado por rol.
 - `src/views/`: pantallas de login, pacientes, formulario, perfil e historial, y calendario.
