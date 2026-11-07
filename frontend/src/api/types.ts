@@ -105,3 +105,67 @@ export interface Pet {
   observations: string | null
   status: PetStatus
 }
+
+// ---- Historia clínica (paquete com.bestvet.bestvet.medicalrecord) ----
+
+/** Consulta registrada (record ConsultationResponse). Fechas con hora en formato ISO local. */
+export interface Consultation {
+  id: number
+  consultationDate: string
+  reason: string
+  symptoms: string | null
+  physicalExamination: string | null
+  diagnosis: string | null
+  treatment: string | null
+  observations: string | null
+  veterinarianId: number
+  veterinarianName: string
+  appointmentId: number | null
+}
+
+/** Vacuna aplicada (record VaccineApplicationResponse). */
+export interface VaccineApplication {
+  id: number
+  vaccineId: number
+  vaccineName: string
+  targetDisease: string | null
+  applicationDate: string
+  observations: string | null
+  veterinarianId: number
+  veterinarianName: string
+}
+
+/** GET /api/pets/{id}/medical-record: ambas listas de la más reciente a la más antigua (RF11). */
+export interface MedicalRecord {
+  id: number
+  petId: number
+  petName: string
+  createdAt: string
+  consultations: Consultation[]
+  vaccinations: VaccineApplication[]
+}
+
+/** Vacuna del catálogo fijo (RF12). */
+export interface Vaccine {
+  id: number
+  name: string
+  targetDisease: string | null
+  description: string | null
+}
+
+export interface ConsultationRequest {
+  consultationDate: string
+  reason: string
+  symptoms: string | null
+  physicalExamination: string | null
+  diagnosis: string | null
+  treatment: string | null
+  observations: string | null
+  appointmentId: number | null
+}
+
+export interface VaccineApplicationRequest {
+  vaccineId: number
+  applicationDate: string
+  observations: string | null
+}

@@ -20,7 +20,7 @@ const OWNER: Owner = {
 }
 
 const renderProfile = (canEdit = true) =>
-  render(<PatientProfileView patientId={1} canEdit={canEdit} onNavigate={vi.fn()} />)
+  render(<PatientProfileView patientId={1} canEdit={canEdit} showMedicalRecord={false} onNavigate={vi.fn()} />)
 
 describe('PatientProfileView', () => {
   beforeEach(() => {
